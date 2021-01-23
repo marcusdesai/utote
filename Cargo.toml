@@ -1,0 +1,31 @@
+[package]
+name = "multiset"
+version = "0.1.0"
+authors = ["Marcus Desai <marcus.desai@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+generic-array = "0.14.4"
+packed_simd = { version = "0.3.4", package = "packed_simd_2" }
+rand = "0.7.3"
+typenum = "1.12.0"
+
+[profile.bench]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = "fat"
+incremental = false
+codegen-units = 1
+rpath = false
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = "fat"
+incremental = false
+codegen-units = 1
+rpath = false
