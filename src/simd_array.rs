@@ -2,7 +2,8 @@ use generic_array::ArrayLength;
 use packed_simd::{u32x2, f64x2};
 use typenum::{UInt, Unsigned};
 
-use crate::{Multiset, SmallZero};
+use crate::{Multiset, SmallNum};
+use std::ops::Index;
 
 
 impl<U, B> Multiset<u32x2, UInt<U, B>>
@@ -23,6 +24,7 @@ impl<U, B> Multiset<u32x2, UInt<U, B>>
         res
     }
 
+    #[inline]
     pub fn from_iter<I>(iter: I) -> Self
         where
             I: IntoIterator<Item=u32>,
@@ -30,7 +32,7 @@ impl<U, B> Multiset<u32x2, UInt<U, B>>
         let mut res = unsafe { Multiset::new_uninitialized() };
         let mut it = iter.into_iter();
 
-        for i in 0.. UInt::<U, B>::USIZE {
+        for i in 0..UInt::<U, B>::USIZE {
             let mut elem_vec = u32x2::ZERO;
             for j in 0..u32x2::lanes() {
                 if let Some(v) = it.next() {
@@ -43,6 +45,7 @@ impl<U, B> Multiset<u32x2, UInt<U, B>>
         res
     }
 
+    #[inline]
     pub fn from_slice(slice: &[u32]) -> Self
     {
         assert_eq!(slice.len(), Self::len());
@@ -124,6 +127,66 @@ impl<U, B> Multiset<u32x2, UInt<U, B>>
     #[inline]
     pub fn total(&self) -> u32 {
         self.fold(u32x2::ZERO, |acc, vec| acc + vec).wrapping_sum()
+    }
+
+    /// Horizontal, really bad
+    #[inline]
+    pub fn argmax(&self) -> (usize, u32) {
+        let mut the_max = unsafe { self.data.index(0).extract_unchecked(0) };
+        let mut the_i = 0;
+
+        for arr_idx in 0..UInt::<U, B>::USIZE {
+            for i in 0..u32x2::lanes() {
+                let val = unsafe { self.data.index(arr_idx).extract_unchecked(i) };
+                if val > the_max {
+                    the_max = val;
+                    the_i = i;
+                }
+            }
+        }
+        (the_i, the_max)
+    }
+
+    /// Horizontal, really bad
+    #[inline]
+    pub fn imax(&self) -> usize {
+        self.argmax().0
+    }
+
+    /// Horizontal
+    #[inline]
+    pub fn max(&self) -> u32 {
+        self.fold(u32x2::ZERO, |acc, vec| acc.max(vec)).max_element()
+    }
+
+    /// Horizontal, really bad
+    #[inline]
+    pub fn argmin(&self) -> (usize, u32) {
+        let mut the_min = unsafe { self.data.index(0).extract_unchecked(0) };
+        let mut the_i = 0;
+
+        for arr_idx in 0..UInt::<U, B>::USIZE {
+            for i in 0..u32x2::lanes() {
+                let val = unsafe { self.data.index(arr_idx).extract_unchecked(i) };
+                if val < the_min {
+                    the_min = val;
+                    the_i = i;
+                }
+            }
+        }
+        (the_i, the_min)
+    }
+
+    /// Horizontal, really bad
+    #[inline]
+    pub fn imin(&self) -> usize {
+        self.argmin().0
+    }
+
+    /// Horizontal
+    #[inline]
+    pub fn min(&self) -> u32 {
+        self.fold(u32x2::ZERO, |acc, vec| acc.min(vec)).min_element()
     }
 
     /// partial horizontal

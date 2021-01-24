@@ -2,10 +2,10 @@ use generic_array::{ArrayLength, GenericArray};
 use std::mem;
 use typenum::{UInt, Unsigned};
 
-use crate::{Multiset, SmallZero};
+use crate::Multiset;
 
 
-impl <N: Clone, U, B> Multiset<N, UInt<U, B>>
+impl<N: Clone, U, B> Multiset<N, UInt<U, B>>
     where
         UInt<U, B>: ArrayLength<N>
 {

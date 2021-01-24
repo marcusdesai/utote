@@ -3,7 +3,7 @@ mod multiset_array;
 mod multiset_simd;
 mod simd_array;
 mod elem_array;
-mod small_zero;
+mod small_num;
 
-use crate::small_zero::SmallZero;
-use crate::multiset::{Multiset, MultisetStorage};
+use crate::small_num::SmallNum;
+use crate::multiset::Multiset;
