@@ -12,7 +12,11 @@ typenum = "1.12.0"
 
 [dev-dependencies]
 approx = "0.4.0"
-criterion = "0.3.3"
+criterion = { version = "0.3.4", features = ["html_reports"] }
+
+[[bench]]
+name = "benches"
+harness = false
 
 [profile.bench]
 opt-level = 3
