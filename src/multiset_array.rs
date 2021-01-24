@@ -67,3 +67,36 @@ impl<N: Clone, U, B> Multiset<N, UInt<U, B>>
         res
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type MS4u8 = Multiset<u32, typenum::U4>;
+
+    #[test]
+    fn test_map() {
+        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
+        let result = set.map(|e| e * 2);
+        let expected = MS4u8::from_slice(&[2, 10, 4, 16]);
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn test_fold() {
+        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
+        let result = set.fold(0, |acc, e| acc + e * 2);
+        let expected = 32;
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn test_zip_map() {
+        let set1 = MS4u8::from_slice(&[1, 5, 2, 8]);
+        let set2 = MS4u8::from_slice(&[1, 5, 2, 8]);
+        let result = set1.zip_map(&set2, |e1, e2| e1 + e2);
+        let expected = MS4u8::from_slice(&[2, 10, 4, 16]);
+        assert_eq!(result, expected)
+    }
+}

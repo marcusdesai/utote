@@ -60,6 +60,11 @@ impl<U, B> Multiset<u32, UInt<U, B>>
     pub const fn len() -> usize { UInt::<U, B>::USIZE }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.data.iter_mut().for_each(|e| *e *= u32::ZERO);
+    }
+
+    #[inline]
     pub fn contains(self, elem: usize) -> bool {
         elem < Self::len() && unsafe { self.data.get_unchecked(elem) > &u32::ZERO }
     }
@@ -202,7 +207,7 @@ impl<U, B> Multiset<u32, UInt<U, B>>
 
     #[inline]
     pub fn choose_random(&mut self, rng: &mut StdRng) {
-        let choice = rng.gen_range(u32::ZERO, self.total() + u32::ONE);
+        let choice_value = rng.gen_range(u32::ZERO, self.total() + u32::ONE);
         let mut acc = u32::ZERO;
         let mut chosen = false;
         self.data.iter_mut().for_each(|elem| {
@@ -210,7 +215,7 @@ impl<U, B> Multiset<u32, UInt<U, B>>
                 *elem = u32::ZERO
             } else {
                 acc += *elem;
-                if acc < choice {
+                if acc < choice_value {
                     *elem = u32::ZERO
                 } else {
                     chosen = true;
@@ -233,7 +238,7 @@ impl<U, B> Multiset<u32, UInt<U, B>>
         -self.fold(0.0, |acc, frequency| {
             if frequency > u32::ZERO {
                 let prob = f64::from(frequency) / total;
-                acc + prob * prob.log2()
+                acc + prob * prob.ln()
             } else {
                 acc
             }
@@ -245,145 +250,223 @@ impl<U, B> Multiset<u32, UInt<U, B>>
 #[cfg(test)]
 mod tests {
     use super::*;
-    type MS4u8 = Multiset<u32, typenum::U4>;
+    use approx::assert_relative_eq;
+
+    type MS4u32 = Multiset<u32, typenum::U4>;
 
     #[test]
-    fn test_repeat() {
-        let result = MS4u8::repeat(3);
-        let expected = MS4u8::from_iter(vec![3; 4].into_iter());
+    fn test_empty() {
+        let result = MS4u32::empty();
+        let expected = MS4u32::from_iter(vec![0; 4].into_iter());
         assert_eq!(result, expected)
     }
 
     #[test]
-    fn test_zeroes() {
-        let result = MS4u8::empty();
-        let expected = MS4u8::from_iter(vec![0; 4].into_iter());
+    fn test_repeat() {
+        let result = MS4u32::repeat(3);
+        let expected = MS4u32::from_iter(vec![3; 4].into_iter());
         assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn test_len() {
+        assert_eq!(MS4u32::len(), 4)
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut set = MS4u32::repeat(3);
+        set.clear();
+        let expected = MS4u32::empty();
+        assert_eq!(set, expected)
     }
 
     #[test]
     fn test_contains() {
-        let set = MS4u8::from_slice(&[1, 0, 1, 0]);
-        assert!(set.contains(2));
+        let set = MS4u32::from_slice(&[1, 0, 1, 0]);
+        assert!(set.contains(0));
         assert!(!set.contains(1));
+        assert!(set.contains(2));
+        assert!(!set.contains(3));
         assert!(!set.contains(4))
     }
 
     #[test]
-    fn test_union() {
-        let a = MS4u8::from_slice(&[2, 0, 4, 0]);
-        let b = MS4u8::from_slice(&[0, 0, 3, 1]);
-        let c = MS4u8::from_slice(&[2, 0, 4, 1]);
-        assert_eq!(c, a.union(&b))
+    fn test_contains_unchecked() {
+        let set = MS4u32::from_slice(&[1, 0, 1, 0]);
+        unsafe {
+            assert!(set.contains_unchecked(0));
+            assert!(!set.contains_unchecked(1));
+            assert!(set.contains_unchecked(2));
+            assert!(!set.contains_unchecked(3));
+        }
     }
 
     #[test]
     fn test_intersection() {
-        let a = MS4u8::from_slice(&[2, 0, 4, 0]);
-        let b = MS4u8::from_slice(&[0, 0, 3, 1]);
-        let c = MS4u8::from_slice(&[0, 0, 3, 0]);
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[0, 0, 3, 1]);
+        let c = MS4u32::from_slice(&[0, 0, 3, 0]);
         assert_eq!(c, a.intersection(&b))
     }
 
     #[test]
+    fn test_union() {
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[0, 0, 3, 1]);
+        let c = MS4u32::from_slice(&[2, 0, 4, 1]);
+        assert_eq!(c, a.union(&b))
+    }
+
+    #[test]
+    fn test_count_zero() {
+        let set = MS4u32::from_slice(&[0, 0, 3, 0]);
+        assert_eq!(set.count_zero(), 3)
+    }
+
+    #[test]
+    fn test_count_non_zero() {
+        let set = MS4u32::from_slice(&[0, 2, 3, 0]);
+        assert_eq!(set.count_non_zero(), 2)
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[0, 0, 0, 0]);
+        assert!(!a.is_empty());
+        assert!(b.is_empty());
+    }
+
+    #[test]
+    fn test_is_singleton() {
+        let a = MS4u32::from_slice(&[1, 0, 0, 0]);
+        assert!(a.is_singleton());
+
+        let b = MS4u32::from_slice(&[0, 0, 0, 5]);
+        assert!(b.is_singleton());
+
+        let c = MS4u32::from_slice(&[1, 0, 0, 5]);
+        assert!(!c.is_singleton());
+
+        let d = MS4u32::from_slice(&[0, 0, 0, 0]);
+        assert!(!d.is_singleton());
+    }
+
+    #[test]
     fn test_is_subset() {
-        let a = MS4u8::from_slice(&[2, 0, 4, 0]);
-        let b = MS4u8::from_slice(&[2, 0, 4, 1]);
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[2, 0, 4, 1]);
         assert!(a.is_subset(&b));
         assert!(!b.is_subset(&a));
 
-        let c = MS4u8::from_slice(&[1, 3, 4, 5]);
+        let c = MS4u32::from_slice(&[1, 3, 4, 5]);
         assert!(!a.is_subset(&c));
         assert!(!c.is_subset(&a));
     }
 
     #[test]
     fn test_is_superset() {
-        let a = MS4u8::from_slice(&[2, 0, 4, 0]);
-        let b = MS4u8::from_slice(&[2, 0, 4, 1]);
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[2, 0, 4, 1]);
         assert!(!a.is_superset(&b));
         assert!(b.is_superset(&a));
 
-        let c = MS4u8::from_slice(&[1, 3, 4, 5]);
+        let c = MS4u32::from_slice(&[1, 3, 4, 5]);
         assert!(!a.is_superset(&c));
         assert!(!c.is_superset(&a));
     }
 
     #[test]
-    fn test_is_singleton() {
-        let a = MS4u8::from_slice(&[1, 0, 0, 0]);
-        assert!(a.is_singleton());
+    fn test_is_any_lesser() {
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[2, 0, 4, 1]);
+        assert!(a.is_any_lesser(&b));
+        assert!(!b.is_any_lesser(&a));
 
-        let b = MS4u8::from_slice(&[0, 0, 0, 5]);
-        assert!(b.is_singleton());
-
-        let c = MS4u8::from_slice(&[1, 0, 0, 5]);
-        assert!(!c.is_singleton());
-
-        let d = MS4u8::from_slice(&[0, 0, 0, 0]);
-        assert!(!d.is_singleton());
+        let c = MS4u32::from_slice(&[1, 3, 4, 5]);
+        assert!(a.is_any_lesser(&c));
+        assert!(c.is_any_lesser(&a));
     }
 
     #[test]
-    fn test_is_empty() {
-        let a = MS4u8::from_slice(&[2, 0, 4, 0]);
-        let b = MS4u8::from_slice(&[0, 0, 0, 0]);
-        assert!(!a.is_empty());
-        assert!(b.is_empty());
+    fn test_is_any_greater() {
+        let a = MS4u32::from_slice(&[2, 0, 4, 0]);
+        let b = MS4u32::from_slice(&[2, 0, 4, 1]);
+        assert!(!a.is_any_greater(&b));
+        assert!(b.is_any_greater(&a));
+
+        let c = MS4u32::from_slice(&[1, 3, 4, 5]);
+        assert!(a.is_any_greater(&c));
+        assert!(c.is_any_greater(&a));
     }
 
     #[test]
-    fn test_shannon_entropy1() {
-        let a = MS4u8::from_slice(&[200, 0, 0, 0]);
-        let b = MS4u8::from_slice(&[2, 1, 1, 0]);
-        assert_eq!(a.shannon_entropy(), 0.0);
-        assert_eq!(b.shannon_entropy(), 1.5);
+    fn test_total() {
+        let set = MS4u32::from_slice(&[1, 3, 4, 5]);
+        assert_eq!(set.total(), 13)
     }
 
     #[test]
-    fn test_shannon_entropy2() {
-        let a = MS4u8::from_slice(&[4, 6, 1, 6]);
-        let entropy = a.shannon_entropy();
-        let lt = 1.79219;
-        let gt = 1.79220;
-        assert!(lt < entropy && entropy < gt);
-
-        let b = MS4u8::from_slice(&[4, 6, 0, 6]);
-        let entropy = b.shannon_entropy();
-        let lt = 1.56127;
-        let gt = 1.56128;
-        assert!(lt < entropy && entropy < gt);
+    fn test_argmax() {
+        let set = MS4u32::from_slice(&[1, 5, 2, 8]);
+        let expected = (3, 8);
+        assert_eq!(set.argmax(), expected)
     }
 
     #[test]
-    fn test_collision_entropy() {
-        let a = MS4u8::from_slice(&[200, 0, 0, 0]);
-        assert_eq!(a.collision_entropy(), 0.0);
+    fn test_imax() {
+        let set = MS4u32::from_slice(&[1, 5, 2, 8]);
+        let expected = 3;
+        assert_eq!(set.imax(), expected)
+    }
 
-        let entropy = MS4u8::from_slice(&[2, 1, 1, 0]).collision_entropy();
-        let lt = 1.41502;
-        let gt = 1.41504;
-        assert!(lt < entropy && entropy < gt);
+    #[test]
+    fn test_max() {
+        let set = MS4u32::from_slice(&[1, 5, 2, 8]);
+        let expected = 8;
+        assert_eq!(set.max(), expected)
+    }
+
+    #[test]
+    fn test_argmin() {
+        let set = MS4u32::from_slice(&[1, 5, 2, 8]);
+        let expected = (0, 1);
+        assert_eq!(set.argmin(), expected)
+    }
+
+    #[test]
+    fn test_imin() {
+        let set = MS4u32::from_slice(&[1, 5, 2, 8]);
+        let expected = 0;
+        assert_eq!(set.imin(), expected)
+    }
+
+    #[test]
+    fn test_min() {
+        let set = MS4u32::from_slice(&[1, 5, 2, 8]);
+        let expected = 1;
+        assert_eq!(set.min(), expected)
     }
 
     #[test]
     fn test_choose() {
-        let mut set = MS4u8::from_slice(&[2, 1, 3, 4]);
-        let expected = MS4u8::from_slice(&[0, 0, 3, 0]);
+        let mut set = MS4u32::from_slice(&[2, 1, 3, 4]);
+        let expected = MS4u32::from_slice(&[0, 0, 3, 0]);
         set.choose(2);
         assert_eq!(set, expected)
     }
 
     #[test]
     fn test_choose_random() {
-        let mut result1 = MS4u8::from_slice(&[2, 1, 3, 4]);
-        let expected1 = MS4u8::from_slice(&[0, 0, 3, 0]);
+        let mut result1 = MS4u32::from_slice(&[2, 1, 3, 4]);
+        let expected1 = MS4u32::from_slice(&[0, 0, 3, 0]);
         let test_rng1 = &mut StdRng::seed_from_u64(5);
         result1.choose_random(test_rng1);
         assert_eq!(result1, expected1);
 
-        let mut result2 = MS4u8::from_slice(&[2, 1, 3, 4]);
-        let expected2 = MS4u8::from_slice(&[2, 0, 0, 0]);
+        let mut result2 = MS4u32::from_slice(&[2, 1, 3, 4]);
+        let expected2 = MS4u32::from_slice(&[2, 0, 0, 0]);
         let test_rng2 = &mut StdRng::seed_from_u64(10);
         result2.choose_random(test_rng2);
         assert_eq!(result2, expected2);
@@ -391,72 +474,43 @@ mod tests {
 
     #[test]
     fn test_choose_random_empty() {
-        let mut result = MS4u8::from_slice(&[0, 0, 0, 0]);
-        let expected = MS4u8::from_slice(&[0, 0, 0, 0]);
+        let mut result = MS4u32::from_slice(&[0, 0, 0, 0]);
+        let expected = MS4u32::from_slice(&[0, 0, 0, 0]);
         let test_rng = &mut StdRng::seed_from_u64(1);
         result.choose_random(test_rng);
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_count_zero() {
-        let set = MS4u8::from_slice(&[0, 0, 3, 0]);
-        assert_eq!(set.count_zero(), 3)
+    fn test_collision_entropy() {
+        let simple = MS4u32::from_slice(&[200, 0, 0, 0]);
+        assert_eq!(simple.collision_entropy(), 0.0);
+
+        let set = MS4u32::from_slice(&[2, 1, 1, 0]);
+        let result = 1.415037499278844;
+        assert_relative_eq!(set.collision_entropy(), result);
     }
 
     #[test]
-    fn test_count_non_zero() {
-        let set = MS4u8::from_slice(&[0, 2, 3, 0]);
-        assert_eq!(set.count_non_zero(), 2)
+    fn test_shannon_entropy1() {
+        let a = MS4u32::from_slice(&[200, 0, 0, 0]);
+        assert_eq!(a.shannon_entropy(), 0.0);
+
+        let b = MS4u32::from_slice(&[2, 1, 1, 0]);
+        let result = 1.0397207708399179;
+        assert_relative_eq!(b.shannon_entropy(), result);
     }
 
     #[test]
-    fn test_map() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let result = set.map(|e| e * 2);
-        let expected = MS4u8::from_slice(&[2, 10, 4, 16]);
-        assert_eq!(result, expected)
-    }
+    fn test_shannon_entropy2() {
+        let set1 = MS4u32::from_slice(&[4, 6, 1, 6]);
+        let entropy = set1.shannon_entropy();
+        let result1 = 1.2422550455140853;
+        assert_relative_eq!(entropy, result1);
 
-    #[test]
-    fn test_argmax() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let expected = (3, 8);
-        assert_eq!(set.argmax(), expected)
-    }
-
-    #[test]
-    fn test_imax() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let expected = 3;
-        assert_eq!(set.imax(), expected)
-    }
-
-    #[test]
-    fn test_max() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let expected = 8;
-        assert_eq!(set.max(), expected)
-    }
-
-    #[test]
-    fn test_argmin() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let expected = (0, 1);
-        assert_eq!(set.argmin(), expected)
-    }
-
-    #[test]
-    fn test_imin() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let expected = 0;
-        assert_eq!(set.imin(), expected)
-    }
-
-    #[test]
-    fn test_min() {
-        let set = MS4u8::from_slice(&[1, 5, 2, 8]);
-        let expected = 1;
-        assert_eq!(set.min(), expected)
+        let set2 = MS4u32::from_slice(&[4, 6, 0, 6]);
+        let entropy = set2.shannon_entropy();
+        let result2 = 1.0821955300387673;
+        assert_relative_eq!(entropy, result2);
     }
 }
