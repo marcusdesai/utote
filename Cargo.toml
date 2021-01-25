@@ -6,7 +6,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Maracoo/utote"
 description = "Stack allocated uint multiset"
-keywords = ["multiset","bag","data-structure","collection","count","simd","stack"]
+keywords = ["multiset","data-structure","collection","simd","stack"]
 
 [dependencies]
 generic-array = "0.14.4"
