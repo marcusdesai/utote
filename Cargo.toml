@@ -1,5 +1,5 @@
 [package]
-name = "multiset"
+name = "utote"
 version = "0.1.0"
 authors = ["Marcus Desai <marcus.desai@gmail.com>"]
 edition = "2018"
