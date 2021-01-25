@@ -1,16 +1,18 @@
 [package]
 name = "utote"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Marcus Desai <marcus.desai@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Maracoo/utote"
-description = "Stack allocated uint multiset"
+homepage = "https://github.com/Maracoo/utote"
+description = "Stack allocated uint multiset, with optional SIMD implementations."
 keywords = ["multiset","data-structure","collection","simd","stack"]
+readme = "README.md"
 
 [dependencies]
 generic-array = "0.14.4"
-packed_simd = { version = "0.3.4", package = "packed_simd_2" }
+packed_simd = { version = "0.3.4", package = "packed_simd_2", optional = true }
 rand = "0.7.3"
 typenum = "1.12.0"
 
@@ -23,16 +25,6 @@ name = "benches"
 harness = false
 
 [profile.bench]
-opt-level = 3
-debug = false
-debug-assertions = false
-overflow-checks = false
-lto = "fat"
-incremental = false
-codegen-units = 1
-rpath = false
-
-[profile.release]
 opt-level = 3
 debug = false
 debug-assertions = false

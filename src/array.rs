@@ -2,7 +2,7 @@ use generic_array::{ArrayLength, GenericArray};
 use std::mem;
 use typenum::{UInt, Unsigned};
 
-use crate::Multiset;
+use crate::multiset::Multiset;
 
 
 impl<N: Clone, U, B> Multiset<N, UInt<U, B>>

@@ -1,6 +1,6 @@
 # Utote
 
-A Stack allocated, SIMD ready, Uint Multiset Implementation
+Stack allocated uint multiset, with optional SIMD implementations.
 
 Currently nightly-only, but will segregate use of `packed_simd_2` behind feature flags to enable use of the scalar multiset implementation on stable.
 
@@ -23,3 +23,6 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
+
+##### P.S.
+May rename to Asimdtote.

@@ -3,7 +3,8 @@ use rand::prelude::*;
 use std::iter::FromIterator;
 use typenum::U0;
 
-use crate::{Multiset, SmallNum};
+use crate::multiset::Multiset;
+use crate::small_num::SmallNum;
 
 
 macro_rules! multiset_simd {
