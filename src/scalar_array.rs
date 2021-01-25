@@ -1,5 +1,6 @@
 use generic_array::ArrayLength;
 use rand::prelude::*;
+use std::iter::FromIterator;
 use typenum::{UInt, Unsigned};
 
 use crate::{Multiset, SmallNum};
@@ -24,24 +25,6 @@ impl<U, B> Multiset<u32, UInt<U, B>>
     }
 
     #[inline]
-    pub fn from_iter<I>(iter: I) -> Self
-        where
-            I: IntoIterator<Item=u32>,
-    {
-        let mut res = unsafe { Multiset::new_uninitialized() };
-        let mut it = iter.into_iter();
-
-        for i in 0..Self::len() {
-            let elem = match it.next() {
-                Some(v) => v,
-                None => u32::ZERO,
-            };
-            unsafe { *res.data.get_unchecked_mut(i) = elem }
-        }
-        res
-    }
-
-    #[inline]
     pub fn from_slice(slice: &[u32]) -> Self
     {
         assert_eq!(slice.len(), Self::len());
@@ -50,7 +33,7 @@ impl<U, B> Multiset<u32, UInt<U, B>>
 
         for i in 0..Self::len() {
             unsafe {
-                *res.data.get_unchecked_mut(i) = iter.next().unwrap().clone()
+                *res.data.get_unchecked_mut(i) = *(iter.next().unwrap())
             }
         }
         res
@@ -85,12 +68,12 @@ impl<U, B> Multiset<u32, UInt<U, B>>
     }
 
     #[inline]
-    fn count_zero(&self) -> u32 {
+    pub fn count_zero(&self) -> u32 {
         self.fold(Self::len() as u32, |acc, elem| acc - elem.min(1))
     }
 
     #[inline]
-    fn count_non_zero(&self) -> u32 {
+    pub fn count_non_zero(&self) -> u32 {
         self.fold(0, |acc, elem| acc + elem.min(1))
     }
 
@@ -243,6 +226,27 @@ impl<U, B> Multiset<u32, UInt<U, B>>
                 acc
             }
         })
+    }
+}
+
+
+impl<U, B> FromIterator<u32> for Multiset<u32, UInt<U, B>>
+    where
+        UInt<U, B>: ArrayLength<u32>,
+{
+    #[inline]
+    fn from_iter<T: IntoIterator<Item=u32>>(iter: T) -> Self {
+        let mut res = unsafe { Multiset::new_uninitialized() };
+        let mut it = iter.into_iter();
+
+        for i in 0..Self::len() {
+            let elem = match it.next() {
+                Some(v) => v,
+                None => u32::ZERO,
+            };
+            unsafe { *res.data.get_unchecked_mut(i) = elem }
+        }
+        res
     }
 }
 
