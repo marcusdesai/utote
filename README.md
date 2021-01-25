@@ -2,6 +2,8 @@
 
 A Stack allocated, SIMD ready, Uint Multiset Implementation
 
+Currently nightly-only, but will segregate use of `packed_simd_2` behind feature flags to enable use of the scalar multiset implementation on stable.
+
 ### Future
 
 - Utilise `const generics` when fully stable.
