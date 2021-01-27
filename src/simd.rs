@@ -1,4 +1,4 @@
-use packed_simd::{u32x4, f64x4, m32x4};
+use packed_simd::*;
 use rand::prelude::*;
 use std::iter::FromIterator;
 use typenum::U0;
@@ -6,12 +6,11 @@ use typenum::U0;
 use crate::multiset::Multiset;
 use crate::small_num::SmallNum;
 
-
 macro_rules! multiset_simd {
     ($simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
         impl FromIterator<$scalar> for Multiset<$simd, U0> {
             #[inline]
-            fn from_iter<T: IntoIterator<Item=$scalar>>(iter: T) -> Self {
+            fn from_iter<T: IntoIterator<Item = $scalar>>(iter: T) -> Self {
                 let mut data = <$simd>::ZERO;
                 let mut it = iter.into_iter();
 
@@ -27,23 +26,30 @@ macro_rules! multiset_simd {
         impl Multiset<$simd, U0> {
             #[inline]
             pub const fn empty() -> Self {
-                Multiset { data: <$simd>::ZERO }
+                Multiset {
+                    data: <$simd>::ZERO,
+                }
             }
 
             #[inline]
             pub const fn repeat(elem: $scalar) -> Self {
-                Multiset { data: <$simd>::splat(elem) }
+                Multiset {
+                    data: <$simd>::splat(elem),
+                }
             }
 
             #[inline]
-            pub fn from_slice(slice: &[$scalar]) -> Self
-            {
+            pub fn from_slice(slice: &[$scalar]) -> Self {
                 assert_eq!(slice.len(), Self::len());
-                Multiset { data: <$simd>::from_slice_unaligned(slice) }
+                Multiset {
+                    data: <$simd>::from_slice_unaligned(slice),
+                }
             }
 
             #[inline]
-            pub const fn len() -> usize { <$simd>::lanes() }
+            pub const fn len() -> usize {
+                <$simd>::lanes()
+            }
 
             #[inline]
             pub fn clear(&mut self) {
@@ -62,21 +68,25 @@ macro_rules! multiset_simd {
 
             #[inline]
             pub fn intersection(&self, other: &Self) -> Self {
-                Multiset { data: self.data.min(other.data) }
+                Multiset {
+                    data: self.data.min(other.data),
+                }
             }
 
             #[inline]
             pub fn union(&self, other: &Self) -> Self {
-                Multiset { data: self.data.max(other.data) }
+                Multiset {
+                    data: self.data.max(other.data),
+                }
             }
 
             #[inline]
-            pub fn count_zero(&self) -> $scalar {
+            pub fn count_zero(&self) -> u32 {
                 self.data.eq(<$simd>::ZERO).bitmask().count_ones()
             }
 
             #[inline]
-            pub fn count_non_zero(&self) -> $scalar {
+            pub fn count_non_zero(&self) -> u32 {
                 self.data.gt(<$simd>::ZERO).bitmask().count_ones()
             }
 
@@ -188,7 +198,7 @@ macro_rules! multiset_simd {
                     acc += unsafe { self.data.extract_unchecked(i) };
                     if acc > choice_value {
                         elem = i;
-                        break
+                        break;
                     }
                 }
                 self.choose(elem)
@@ -211,277 +221,15 @@ macro_rules! multiset_simd {
                 -data.is_nan().select(<$simd_f>::ZERO, data).sum()
             }
         }
-    }
+    };
 }
 
-
 multiset_simd!(u32x4, u32, f64x4, m32x4);
-
+multiset_simd!(u16x8, u16, f64x8, m16x8);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
-
-    type MS0u32x4 = Multiset<u32x4, U0>;
-
-    #[test]
-    fn test_empty() {
-        let result = MS0u32x4::empty();
-        let expected = MS0u32x4::from_iter(vec![0; 4].into_iter());
-        assert_eq!(result, expected)
-    }
-
-    #[test]
-    fn test_repeat() {
-        let result = MS0u32x4::repeat(3);
-        let expected = MS0u32x4::from_iter(vec![3; 4].into_iter());
-        assert_eq!(result, expected)
-    }
-
-    #[test]
-    fn test_len() {
-        assert_eq!(MS0u32x4::len(), 4)
-    }
-
-    #[test]
-    fn test_clear() {
-        let mut set = MS0u32x4::repeat(3);
-        set.clear();
-        let expected = MS0u32x4::empty();
-        assert_eq!(set, expected)
-    }
-
-    #[test]
-    fn test_contains() {
-        let set = MS0u32x4::from_slice(&[1, 0, 1, 0]);
-        assert!(set.contains(0));
-        assert!(!set.contains(1));
-        assert!(set.contains(2));
-        assert!(!set.contains(3));
-        assert!(!set.contains(4))
-    }
-
-    #[test]
-    fn test_contains_unchecked() {
-        let set = MS0u32x4::from_slice(&[1, 0, 1, 0]);
-        unsafe {
-            assert!(set.contains_unchecked(0));
-            assert!(!set.contains_unchecked(1));
-            assert!(set.contains_unchecked(2));
-            assert!(!set.contains_unchecked(3));
-        }
-    }
-
-    #[test]
-    fn test_intersection() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[0, 0, 3, 1]);
-        let c = MS0u32x4::from_slice(&[0, 0, 3, 0]);
-        assert_eq!(c, a.intersection(&b))
-    }
-
-    #[test]
-    fn test_union() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[0, 0, 3, 1]);
-        let c = MS0u32x4::from_slice(&[2, 0, 4, 1]);
-        assert_eq!(c, a.union(&b))
-    }
-
-    #[test]
-    fn test_count_zero() {
-        let set = MS0u32x4::from_slice(&[0, 0, 3, 0]);
-        assert_eq!(set.count_zero(), 3)
-    }
-
-    #[test]
-    fn test_count_non_zero() {
-        let set = MS0u32x4::from_slice(&[0, 2, 3, 0]);
-        assert_eq!(set.count_non_zero(), 2)
-    }
-
-    #[test]
-    fn test_is_empty() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[0, 0, 0, 0]);
-        assert!(!a.is_empty());
-        assert!(b.is_empty());
-    }
-
-    #[test]
-    fn test_is_singleton() {
-        let a = MS0u32x4::from_slice(&[1, 0, 0, 0]);
-        assert!(a.is_singleton());
-
-        let b = MS0u32x4::from_slice(&[0, 0, 0, 5]);
-        assert!(b.is_singleton());
-
-        let c = MS0u32x4::from_slice(&[1, 0, 0, 5]);
-        assert!(!c.is_singleton());
-
-        let d = MS0u32x4::from_slice(&[0, 0, 0, 0]);
-        assert!(!d.is_singleton());
-    }
-
-    #[test]
-    fn test_is_subset() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[2, 0, 4, 1]);
-        assert!(a.is_subset(&b));
-        assert!(!b.is_subset(&a));
-
-        let c = MS0u32x4::from_slice(&[1, 3, 4, 5]);
-        assert!(!a.is_subset(&c));
-        assert!(!c.is_subset(&a));
-    }
-
-    #[test]
-    fn test_is_superset() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[2, 0, 4, 1]);
-        assert!(!a.is_superset(&b));
-        assert!(b.is_superset(&a));
-
-        let c = MS0u32x4::from_slice(&[1, 3, 4, 5]);
-        assert!(!a.is_superset(&c));
-        assert!(!c.is_superset(&a));
-    }
-
-    #[test]
-    fn test_is_any_lesser() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[2, 0, 4, 1]);
-        assert!(a.is_any_lesser(&b));
-        assert!(!b.is_any_lesser(&a));
-
-        let c = MS0u32x4::from_slice(&[1, 3, 4, 5]);
-        assert!(a.is_any_lesser(&c));
-        assert!(c.is_any_lesser(&a));
-    }
-
-    #[test]
-    fn test_is_any_greater() {
-        let a = MS0u32x4::from_slice(&[2, 0, 4, 0]);
-        let b = MS0u32x4::from_slice(&[2, 0, 4, 1]);
-        assert!(!a.is_any_greater(&b));
-        assert!(b.is_any_greater(&a));
-
-        let c = MS0u32x4::from_slice(&[1, 3, 4, 5]);
-        assert!(a.is_any_greater(&c));
-        assert!(c.is_any_greater(&a));
-    }
-
-    #[test]
-    fn test_total() {
-        let set = MS0u32x4::from_slice(&[1, 3, 4, 5]);
-        assert_eq!(set.total(), 13)
-    }
-
-    #[test]
-    fn test_argmax() {
-        let set = MS0u32x4::from_slice(&[1, 5, 2, 8]);
-        let expected = (3, 8);
-        assert_eq!(set.argmax(), expected)
-    }
-
-    #[test]
-    fn test_imax() {
-        let set = MS0u32x4::from_slice(&[1, 5, 2, 8]);
-        let expected = 3;
-        assert_eq!(set.imax(), expected)
-    }
-
-    #[test]
-    fn test_max() {
-        let set = MS0u32x4::from_slice(&[1, 5, 2, 8]);
-        let expected = 8;
-        assert_eq!(set.max(), expected)
-    }
-
-    #[test]
-    fn test_argmin() {
-        let set = MS0u32x4::from_slice(&[1, 5, 2, 8]);
-        let expected = (0, 1);
-        assert_eq!(set.argmin(), expected)
-    }
-
-    #[test]
-    fn test_imin() {
-        let set = MS0u32x4::from_slice(&[1, 5, 2, 8]);
-        let expected = 0;
-        assert_eq!(set.imin(), expected)
-    }
-
-    #[test]
-    fn test_min() {
-        let set = MS0u32x4::from_slice(&[1, 5, 2, 8]);
-        let expected = 1;
-        assert_eq!(set.min(), expected)
-    }
-
-    #[test]
-    fn test_choose() {
-        let mut set = MS0u32x4::from_slice(&[2, 1, 3, 4]);
-        let expected = MS0u32x4::from_slice(&[0, 0, 3, 0]);
-        set.choose(2);
-        assert_eq!(set, expected)
-    }
-
-    #[test]
-    fn test_choose_random() {
-        let mut result1 = MS0u32x4::from_slice(&[2, 1, 3, 4]);
-        let expected1 = MS0u32x4::from_slice(&[0, 0, 3, 0]);
-        let test_rng1 = &mut StdRng::seed_from_u64(5);
-        result1.choose_random(test_rng1);
-        assert_eq!(result1, expected1);
-
-        let mut result2 = MS0u32x4::from_slice(&[2, 1, 3, 4]);
-        let expected2 = MS0u32x4::from_slice(&[2, 0, 0, 0]);
-        let test_rng2 = &mut StdRng::seed_from_u64(10);
-        result2.choose_random(test_rng2);
-        assert_eq!(result2, expected2);
-    }
-
-    #[test]
-    fn test_choose_random_empty() {
-        let mut result = MS0u32x4::from_slice(&[0, 0, 0, 0]);
-        let expected = MS0u32x4::from_slice(&[0, 0, 0, 0]);
-        let test_rng = &mut StdRng::seed_from_u64(1);
-        result.choose_random(test_rng);
-        assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_collision_entropy() {
-        let simple = MS0u32x4::from_slice(&[200, 0, 0, 0]);
-        assert_eq!(simple.collision_entropy(), 0.0);
-
-        let set = MS0u32x4::from_slice(&[2, 1, 1, 0]);
-        let result = 1.415037499278844;
-        assert_relative_eq!(set.collision_entropy(), result);
-    }
-
-    #[test]
-    fn test_shannon_entropy1() {
-        let a = MS0u32x4::from_slice(&[200, 0, 0, 0]);
-        assert_eq!(a.shannon_entropy(), 0.0);
-
-        let b = MS0u32x4::from_slice(&[2, 1, 1, 0]);
-        let result = 1.0397207708399179;
-        assert_relative_eq!(b.shannon_entropy(), result);
-    }
-
-    #[test]
-    fn test_shannon_entropy2() {
-        let set1 = MS0u32x4::from_slice(&[4, 6, 1, 6]);
-        let entropy = set1.shannon_entropy();
-        let result1 = 1.2422550455140853;
-        assert_relative_eq!(entropy, result1);
-
-        let set2 = MS0u32x4::from_slice(&[4, 6, 0, 6]);
-        let entropy = set2.shannon_entropy();
-        let result2 = 1.0821955300387673;
-        assert_relative_eq!(entropy, result2);
-    }
+    tests_x4!(ms0u32x4, u32x4, typenum::U0);
+    tests_x8!(ms0u16x8, u16x8, typenum::U0);
 }

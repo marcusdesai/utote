@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/Maracoo/utote"
 homepage = "https://github.com/Maracoo/utote"
 description = "Stack allocated uint multiset, with optional SIMD implementations."
-keywords = ["multiset","data-structure","collection","simd","stack"]
+keywords = ["multiset", "data-structure", "collection", "simd", "stack"]
 readme = "README.md"
 
 [dependencies]
@@ -23,13 +23,3 @@ criterion = { version = "0.3.4", features = ["html_reports"] }
 [[bench]]
 name = "benches"
 harness = false
-
-[profile.bench]
-opt-level = 3
-debug = false
-debug-assertions = false
-overflow-checks = false
-lto = "fat"
-incremental = false
-codegen-units = 1
-rpath = false
