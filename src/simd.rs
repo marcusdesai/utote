@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use typenum::U0;
 
 use crate::multiset::Multiset;
-use crate::small_num::SmallNum;
+use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd {
     ($simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
@@ -224,8 +224,15 @@ macro_rules! multiset_simd {
     };
 }
 
-multiset_simd!(u32x4, u32, f64x4, m32x4);
+multiset_simd!(u8x2, u8, f64x2, m8x2);
+multiset_simd!(u8x4, u8, f64x4, m8x4);
+multiset_simd!(u8x8, u8, f64x8, m8x8);
+multiset_simd!(u16x2, u16, f64x2, m16x2);
+multiset_simd!(u16x4, u16, f64x4, m16x4);
 multiset_simd!(u16x8, u16, f64x8, m16x8);
+multiset_simd!(u32x2, u32, f64x2, m32x2);
+multiset_simd!(u32x4, u32, f64x4, m32x4);
+multiset_simd!(u32x8, u32, f64x8, m32x8);
 
 #[cfg(test)]
 mod tests {

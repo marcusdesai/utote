@@ -1,4 +1,4 @@
-pub(crate) trait SmallNum {
+pub(crate) trait SmallNumConsts {
     const ZERO: Self;
     const ONE: Self;
     const MAX: Self;
@@ -6,7 +6,7 @@ pub(crate) trait SmallNum {
 
 macro_rules! impl_small_num {
     ($zero:expr, $one:expr, $max:expr, $t:ty) => {
-        impl SmallNum for $t {
+        impl SmallNumConsts for $t {
             const ZERO: $t = $zero;
             const ONE: $t = $one;
             const MAX: $t = $max;
@@ -30,9 +30,9 @@ use packed_simd::{
 #[cfg(feature = "packed_simd")]
 macro_rules! impl_simd_small_num {
     ($($t:ty),*) => {
-        $(impl SmallNum for $t
+        $(impl SmallNumConsts for $t
             where
-                <$t as SimdVector>::Element: SmallNum
+                <$t as SimdVector>::Element: SmallNumConsts
         {
             const ZERO: $t = <$t>::splat(<$t as SimdVector>::Element::ZERO);
             const ONE: $t = <$t>::splat(<$t as SimdVector>::Element::ONE);

@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use typenum::{UInt, Unsigned};
 
 use crate::multiset::Multiset;
-use crate::small_num::SmallNum;
+use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_scalar_array {
     ($($scalar:ty),*) => {

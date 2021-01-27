@@ -1,3 +1,4 @@
+#[macro_export]
 macro_rules! tests_x4 {
     ($tests_name:ident, $scalar:ty, $ms_store:ty) => {
         #[cfg(test)]
@@ -36,6 +37,7 @@ macro_rules! tests_x4 {
     };
 }
 
+#[macro_export]
 macro_rules! tests_x8 {
     ($tests_name:ident, $scalar:ty, $ms_store:ty) => {
         #[cfg(test)]
@@ -85,6 +87,7 @@ macro_rules! tests_x8 {
     };
 }
 
+#[macro_export]
 macro_rules! test_constructors {
     ($typ:ty, $size:expr) => {
         #[test]
@@ -116,6 +119,7 @@ macro_rules! test_constructors {
     };
 }
 
+#[macro_export]
 macro_rules! test_contains {
     ($typ:ty, $slice:expr, $contains:expr, $not_contains:expr, $out_of_bounds:expr) => {
         #[test]
@@ -150,6 +154,7 @@ macro_rules! test_contains {
     };
 }
 
+#[macro_export]
 macro_rules! test_intersection_union {
     ($typ:ty, $slice1:expr, $slice2:expr, $intersection:expr, $union:expr) => {
         #[test]
@@ -170,6 +175,7 @@ macro_rules! test_intersection_union {
     };
 }
 
+#[macro_export]
 macro_rules! test_count_zero {
     ($typ:ty, $slice:expr, $count_zero:expr, $count_non_zero:expr) => {
         #[test]
@@ -186,6 +192,7 @@ macro_rules! test_count_zero {
     };
 }
 
+#[macro_export]
 macro_rules! test_is_empty {
     ($typ:ty, $non_empty:expr) => {
         #[test]
@@ -198,6 +205,7 @@ macro_rules! test_is_empty {
     };
 }
 
+#[macro_export]
 macro_rules! test_is_singleton {
     ($typ:ty, $singleton:expr, $four_elem:expr) => {
         #[test]
@@ -214,6 +222,7 @@ macro_rules! test_is_singleton {
     };
 }
 
+#[macro_export]
 macro_rules! test_is_subset_superset {
     ($typ:ty, $sub:expr, $super:expr, $neither:expr) => {
         #[test]
@@ -282,6 +291,7 @@ macro_rules! test_is_subset_superset {
     };
 }
 
+#[macro_export]
 macro_rules! test_total {
     ($typ:ty, $slice:expr, $result:expr) => {
         #[test]
@@ -292,6 +302,7 @@ macro_rules! test_total {
     };
 }
 
+#[macro_export]
 macro_rules! test_max_min {
     ($typ:ty, $slice:expr, $max_idx:expr, $max_val:expr, $min_idx:expr, $min_val:expr) => {
         #[test]
@@ -338,6 +349,7 @@ macro_rules! test_max_min {
     };
 }
 
+#[macro_export]
 macro_rules! test_choices {
     ($typ:ty, $slice:expr, $choice:expr) => {
         #[test]
@@ -372,6 +384,7 @@ macro_rules! test_choices {
     };
 }
 
+#[macro_export]
 macro_rules! test_entropy {
     ($typ:ty, $slice1:expr, $slice2:expr, $col1:expr, $col2:expr, $shan1:expr, $shan2:expr) => {
         #[test]
