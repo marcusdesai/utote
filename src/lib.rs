@@ -1,5 +1,6 @@
 pub mod multiset;
 #[macro_use]
+#[allow(unused_macros)]
 mod tests;
 mod array;
 mod scalar_array;

@@ -2,12 +2,29 @@
 
 Stack allocated uint multiset, with optional SIMD implementations.
 
-Currently nightly-only, but will segregate use of `packed_simd_2` behind feature flags to enable use of the scalar multiset implementation on stable.
+Segregated use of `packed_simd_2` behind feature flags, requires nightly. The scalar multiset implementation is usable on stable.
+
+Inspired by nalgebra and simba.
+
+Why macros?
+
+Why not simba?
+
+Why packed_simd?
+
+The compiler is very good at auto-vectorising in micro-benchmarks, but use explicit simd along with compiler flags to ensure that vectorised code is being emitted. 
+
+### Basic Example
+
+```rust
+use utote::Multiset;
+```
 
 ### Future
 
 - Utilise `const generics` when fully stable.
 - Use `std::simd` when that is also stable.
+- Use simba if features expand to capture everything available in `packed_simd` or `std::simd`.
 
 ## License
 

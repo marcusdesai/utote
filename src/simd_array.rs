@@ -1,6 +1,7 @@
 use generic_array::ArrayLength;
 use packed_simd::*;
 use rand::prelude::*;
+use std::cmp::Ordering;
 use std::iter::FromIterator;
 use typenum::{UInt, Unsigned};
 
@@ -29,6 +30,39 @@ macro_rules! multiset_simd_array {
                 }
 
                 res
+            }
+        }
+
+        impl<U, B> PartialOrd for Multiset<$simd, UInt<U, B>>
+            where
+                UInt<U, B>: ArrayLength<$simd>,
+        {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                if self == other {
+                    Some(Ordering::Equal)
+                } else if self.lt(other) {
+                    Some(Ordering::Less)
+                } else if self.gt(other) {
+                    Some(Ordering::Greater)
+                } else {
+                    None
+                }
+            }
+
+            fn lt(&self, other: &Self) -> bool {
+                self.is_proper_subset(other)
+            }
+
+            fn le(&self, other: &Self) -> bool {
+                self.is_subset(other)
+            }
+
+            fn gt(&self, other: &Self) -> bool {
+                self.is_proper_superset(other)
+            }
+
+            fn ge(&self, other: &Self) -> bool {
+                self.is_superset(other)
             }
         }
 
@@ -140,6 +174,16 @@ macro_rules! multiset_simd_array {
                     .iter()
                     .zip(other.data.iter())
                     .all(|(s1, s2)| s1.ge(*s2).all())
+            }
+
+            #[inline]
+            pub fn is_proper_subset(&self, other: &Self) -> bool {
+                self.is_subset(other) && self.is_any_lesser(other)
+            }
+
+            #[inline]
+            pub fn is_proper_superset(&self, other: &Self) -> bool {
+                self.is_superset(other) && self.is_any_greater(other)
             }
 
             #[inline]

@@ -69,14 +69,14 @@ where
 
 impl<N, U, B> AddAssign for Multiset<N, UInt<U, B>>
 where
-    N: AddAssign + Clone,
+    N: AddAssign + Copy,
     UInt<U, B>: ArrayLength<N>,
 {
     fn add_assign(&mut self, rhs: Self) {
         for i in 0..UInt::<U, B>::USIZE {
             unsafe {
                 let e = rhs.data.get_unchecked(i);
-                *self.data.get_unchecked_mut(i) += e.clone();
+                *self.data.get_unchecked_mut(i) += *e;
             }
         }
     }
@@ -84,14 +84,14 @@ where
 
 impl<N, U, B> SubAssign for Multiset<N, UInt<U, B>>
 where
-    N: SubAssign + Clone,
+    N: SubAssign + Copy,
     UInt<U, B>: ArrayLength<N>,
 {
     fn sub_assign(&mut self, rhs: Self) {
         for i in 0..UInt::<U, B>::USIZE {
             unsafe {
                 let e = rhs.data.get_unchecked(i);
-                *self.data.get_unchecked_mut(i) -= e.clone();
+                *self.data.get_unchecked_mut(i) -= *e;
             }
         }
     }
@@ -99,14 +99,14 @@ where
 
 impl<N, U, B> MulAssign for Multiset<N, UInt<U, B>>
 where
-    N: MulAssign + Clone,
+    N: MulAssign + Copy,
     UInt<U, B>: ArrayLength<N>,
 {
     fn mul_assign(&mut self, rhs: Self) {
         for i in 0..UInt::<U, B>::USIZE {
             unsafe {
                 let e = rhs.data.get_unchecked(i);
-                *self.data.get_unchecked_mut(i) *= e.clone();
+                *self.data.get_unchecked_mut(i) *= *e;
             }
         }
     }
@@ -114,14 +114,14 @@ where
 
 impl<N, U, B> DivAssign for Multiset<N, UInt<U, B>>
 where
-    N: DivAssign + Clone,
+    N: DivAssign + Copy,
     UInt<U, B>: ArrayLength<N>,
 {
     fn div_assign(&mut self, rhs: Self) {
         for i in 0..UInt::<U, B>::USIZE {
             unsafe {
                 let e = rhs.data.get_unchecked(i);
-                *self.data.get_unchecked_mut(i) /= e.clone();
+                *self.data.get_unchecked_mut(i) /= *e;
             }
         }
     }
