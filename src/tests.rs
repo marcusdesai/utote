@@ -383,12 +383,12 @@ macro_rules! test_choices {
         #[test]
         fn test_choose_random() {
             let mut result1 = <$typ>::from_slice($slice);
-            let test_rng1 = &mut StdRng::seed_from_u64(5);
+            let test_rng1 = &mut StdRng::seed_from_u64(thread_rng().next_u64());
             result1.choose_random(test_rng1);
             assert!(result1.is_singleton() && result1.is_subset(&<$typ>::from_slice($slice)));
 
             let mut result2 = <$typ>::from_slice($slice);
-            let test_rng2 = &mut StdRng::seed_from_u64(10);
+            let test_rng2 = &mut StdRng::seed_from_u64(thread_rng().next_u64());
             result2.choose_random(test_rng2);
             assert!(result1.is_singleton() && result1.is_subset(&<$typ>::from_slice($slice)));
         }
@@ -397,7 +397,7 @@ macro_rules! test_choices {
         fn test_choose_random_empty() {
             let mut result = <$typ>::empty();
             let expected = <$typ>::empty();
-            let test_rng = &mut StdRng::seed_from_u64(1);
+            let test_rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
             result.choose_random(test_rng);
             assert_eq!(result, expected);
         }

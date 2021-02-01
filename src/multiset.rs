@@ -2,6 +2,8 @@ use generic_array::{ArrayLength, GenericArray};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 use typenum::{UInt, Unsigned, U0};
 
+/// Trait enabling the sleight of hand using different typenum structs to define different storage
+/// types.
 pub trait MultisetStorage<T> {
     type Storage;
 }
@@ -17,6 +19,7 @@ where
     type Storage = GenericArray<N, Self>;
 }
 
+/// Multiset! yay
 #[derive(Debug, Copy, Clone)]
 pub struct Multiset<N, U: MultisetStorage<N>> {
     pub(crate) data: U::Storage,

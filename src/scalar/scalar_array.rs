@@ -1,4 +1,5 @@
 use generic_array::ArrayLength;
+use paste::paste;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
@@ -33,44 +34,21 @@ macro_rules! multiset_scalar_array {
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                if self == other {
-                    Some(Ordering::Equal)
-                } else if self.lt(other) {
-                    Some(Ordering::Less)
-                } else if self.gt(other) {
-                    Some(Ordering::Greater)
-                } else {
-                    None
-                }
-            }
-
-            fn lt(&self, other: &Self) -> bool {
-                self.is_proper_subset(other)
-            }
-
-            fn le(&self, other: &Self) -> bool {
-                self.is_subset(other)
-            }
-
-            fn gt(&self, other: &Self) -> bool {
-                self.is_proper_superset(other)
-            }
-
-            fn ge(&self, other: &Self) -> bool {
-                self.is_superset(other)
-            }
+            partial_ord_body!();
         }
 
         impl<U, B> Multiset<$scalar, UInt<U, B>>
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
+
+            /// Returns a Multiset of the given array size with all elements set to zero.
             #[inline]
             pub fn empty() -> Self {
                 Self::repeat(<$scalar>::ZERO)
             }
 
+            /// Returns a Multiset of the given array size with all elements set to `elem`.
             #[inline]
             pub fn repeat(elem: $scalar) -> Self {
                 let mut res = unsafe { Multiset::new_uninitialized() };
@@ -80,6 +58,7 @@ macro_rules! multiset_scalar_array {
                 res
             }
 
+            /// Returns a Multiset from a slice of the given array size.
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self
             {
@@ -95,90 +74,136 @@ macro_rules! multiset_scalar_array {
                 res
             }
 
+            /// The number of elements in the multiset.
             #[inline]
             pub const fn len() -> usize { UInt::<U, B>::USIZE }
 
+            /// Sets all element counts in the multiset to zero.
             #[inline]
             pub fn clear(&mut self) {
                 self.data.iter_mut().for_each(|e| *e *= <$scalar>::ZERO);
             }
 
+            /// Checks that a given element has at least one member in the multiset.
             #[inline]
             pub fn contains(self, elem: usize) -> bool {
                 elem < Self::len() && unsafe { self.data.get_unchecked(elem) > &<$scalar>::ZERO }
             }
 
+            /// Checks that a given element has at least one member in the multiset without bounds
+            /// checks.
+            ///
+            /// # Safety
+            /// Does not do bounds check on whether this element is an index in the underlying
+            /// array.
             #[inline]
             pub unsafe fn contains_unchecked(self, elem: usize) -> bool {
                 self.data.get_unchecked(elem) > &<$scalar>::ZERO
             }
 
+            /// Returns a multiset which is the intersection of `self` and `other`.
+            ///
+            /// The Intersection of two multisets A & B is defined as the multiset C where
+            /// C`[0]` == min(A`[0]`, B`[0]`).
             #[inline]
             pub fn intersection(&self, other: &Self) -> Self {
                 self.zip_map(other, |s1, s2| s1.min(s2))
             }
 
+            /// Returns a multiset which is the union of `self` and `other`.
+            ///
+            /// The union of two multisets A & B is defined as the multiset C where
+            /// C`[0]` == max(A`[0]`, B`[0]`).
             #[inline]
             pub fn union(&self, other: &Self) -> Self {
                 self.zip_map(other, |s1, s2| s1.max(s2))
             }
 
+            /// Return the number of elements whose member count is zero.
             #[inline]
             pub fn count_zero(&self) -> $scalar {
                 self.fold(Self::len() as $scalar, |acc, elem| acc - elem.min(1))
             }
 
+            /// Return the number of elements whose member count is non-zero.
             #[inline]
             pub fn count_non_zero(&self) -> $scalar {
                 self.fold(0, |acc, elem| acc + elem.min(1))
             }
 
+            /// Check whether all elements have zero members.
             #[inline]
             pub fn is_empty(&self) -> bool {
                 self.data.iter().all(|elem| elem == &<$scalar>::ZERO)
             }
 
+            /// Check whether only one element has one or more members.
             #[inline]
             pub fn is_singleton(&self) -> bool {
                 self.count_non_zero() == 1
             }
 
+            /// Check whether `self` is a subset of `other`.
+            ///
+            /// Multisets A is a subset of B if A`[i]` <= B`[i]` for all `i` in A.
             #[inline]
             pub fn is_subset(&self, other: &Self) -> bool {
                 self.data.iter().zip(other.data.iter()).all(|(a, b)| a <= b)
             }
 
+            /// Check whether `self` is a superset of `other`.
+            ///
+            /// Multisets A is a superset of B if A`[i]` >= B`[i]` for all `i` in A.
             #[inline]
             pub fn is_superset(&self, other: &Self) -> bool {
                 self.data.iter().zip(other.data.iter()).all(|(a, b)| a >= b)
             }
 
+            /// Check whether `self` is a proper subset of `other`.
+            ///
+            /// Multisets A is a proper subset of B if A`[i]` <= B`[i]` for all `i` in A and there
+            /// exists `j` such that A`[j]` < B`[j]`.
             #[inline]
             pub fn is_proper_subset(&self, other: &Self) -> bool {
                 self.is_subset(other) && self.is_any_lesser(other)
             }
 
+            /// Check whether `self` is a proper superset of `other`.
+            ///
+            /// Multisets A is a proper superset of B if A`[i]` >= B`[i]` for all `i` in A and
+            /// there exists `j` such that A`[j]` > B`[j]`.
             #[inline]
             pub fn is_proper_superset(&self, other: &Self) -> bool {
                 self.is_superset(other) && self.is_any_greater(other)
             }
 
+            /// Check whether any element of `self` is less than an element of `other`.
+            ///
+            /// True if the exists some `i` such that A`[i]` < B`[i]`.
             #[inline]
             pub fn is_any_lesser(&self, other: &Self) -> bool {
                 self.data.iter().zip(other.data.iter()).any(|(a, b)| a < b)
             }
 
+            /// Check whether any element of `self` is greater than an element of `other`.
+            ///
+            /// True if the exists some `i` such that A`[i]` > B`[i]`.
             #[inline]
             pub fn is_any_greater(&self, other: &Self) -> bool {
                 self.data.iter().zip(other.data.iter()).any(|(a, b)| a > b)
             }
 
-            /// May overflow
+            /// The total or cardinality of a multiset is the sum of all its elements member counts.
+            ///
+            /// Notes:
+            /// - This may overflow.
             #[inline]
             pub fn total(&self) -> $scalar {
                 self.data.iter().sum()
             }
 
+            /// Returns a tuple containing the (element, corresponding largest member count) in the
+            /// multiset.
             #[inline]
             pub fn argmax(&self) -> (usize, $scalar) {
                 let mut the_max = unsafe { self.data.get_unchecked(0) };
@@ -194,11 +219,13 @@ macro_rules! multiset_scalar_array {
                 (the_i, *the_max)
             }
 
+            /// Returns the element corresponding to the largest member count in the multiset.
             #[inline]
             pub fn imax(&self) -> usize {
                 self.argmax().0
             }
 
+            /// Returns the largest member count in the multiset.
             #[inline]
             pub fn max(&self) -> $scalar {
                 let mut the_max = unsafe { self.data.get_unchecked(0) };
@@ -212,6 +239,8 @@ macro_rules! multiset_scalar_array {
                 *the_max
             }
 
+            /// Returns a tuple containing the (element, corresponding smallest member count) in the
+            /// multiset.
             #[inline]
             pub fn argmin(&self) -> (usize, $scalar) {
                 let mut the_min = unsafe { self.data.get_unchecked(0) };
@@ -227,11 +256,13 @@ macro_rules! multiset_scalar_array {
                 (the_i, *the_min)
             }
 
+            /// Returns the element corresponding to the smallest member count in the multiset.
             #[inline]
             pub fn imin(&self) -> usize {
                 self.argmin().0
             }
 
+            /// Returns the smallest member count in the multiset.
             #[inline]
             pub fn min(&self) -> $scalar {
                 let mut the_min = unsafe { self.data.get_unchecked(0) };
@@ -245,6 +276,7 @@ macro_rules! multiset_scalar_array {
                 *the_min
             }
 
+            /// Set all elements member counts, except for the given `elem`, to zero.
             #[inline]
             pub fn choose(&mut self, elem: usize) {
                 for i in 0..Self::len() {
@@ -254,6 +286,7 @@ macro_rules! multiset_scalar_array {
                 }
             }
 
+            /// Set all elements member counts, except for a random one, to zero.
             #[inline]
             pub fn choose_random(&mut self, rng: &mut StdRng) {
                 let choice_value = rng.gen_range(<$scalar>::ZERO, self.total() + <$scalar>::ONE);
@@ -273,6 +306,7 @@ macro_rules! multiset_scalar_array {
                 })
             }
 
+            /// Calculate the collision entropy of the multiset.
             #[inline]
             pub fn collision_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
@@ -281,6 +315,7 @@ macro_rules! multiset_scalar_array {
                 }).log2()
             }
 
+            /// Calculate the shannon entropy of the multiset. Uses ln rather than log2.
             #[inline]
             pub fn shannon_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
@@ -298,6 +333,8 @@ macro_rules! multiset_scalar_array {
 }
 
 multiset_scalar_array!(u8, u16, u32);
+
+multiset_type!(u8, u16, u32);
 
 #[cfg(test)]
 mod tests {

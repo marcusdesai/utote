@@ -1,4 +1,5 @@
 use packed_simd::*;
+use paste::paste;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
@@ -25,36 +26,11 @@ macro_rules! multiset_simd {
         }
 
         impl PartialOrd for Multiset<$simd, U0> {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                if self == other {
-                    Some(Ordering::Equal)
-                } else if self.lt(other) {
-                    Some(Ordering::Less)
-                } else if self.gt(other) {
-                    Some(Ordering::Greater)
-                } else {
-                    None
-                }
-            }
-
-            fn lt(&self, other: &Self) -> bool {
-                self.is_proper_subset(other)
-            }
-
-            fn le(&self, other: &Self) -> bool {
-                self.is_subset(other)
-            }
-
-            fn gt(&self, other: &Self) -> bool {
-                self.is_proper_superset(other)
-            }
-
-            fn ge(&self, other: &Self) -> bool {
-                self.is_superset(other)
-            }
+            partial_ord_body!();
         }
 
         impl Multiset<$simd, U0> {
+            /// Returns a Multiset of the given SIMD vector size with all elements set to zero.
             #[inline]
             pub const fn empty() -> Self {
                 Multiset {
@@ -62,6 +38,7 @@ macro_rules! multiset_simd {
                 }
             }
 
+            /// Returns a Multiset of the given SIMD vector size with all elements set to `elem`.
             #[inline]
             pub const fn repeat(elem: $scalar) -> Self {
                 Multiset {
@@ -69,6 +46,7 @@ macro_rules! multiset_simd {
                 }
             }
 
+            /// Returns a Multiset from a slice of the given SIMD vector size.
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self {
                 assert_eq!(slice.len(), Self::len());
@@ -77,26 +55,39 @@ macro_rules! multiset_simd {
                 }
             }
 
+            /// The number of elements in the multiset.
             #[inline]
             pub const fn len() -> usize {
                 <$simd>::lanes()
             }
 
+            /// Sets all element counts in the multiset to zero.
             #[inline]
             pub fn clear(&mut self) {
                 self.data *= <$scalar>::ZERO
             }
 
+            /// Checks that a given element has at least one member in the multiset.
             #[inline]
             pub fn contains(self, elem: usize) -> bool {
                 elem < Self::len() && unsafe { self.data.extract_unchecked(elem) > <$scalar>::ZERO }
             }
 
+            /// Checks that a given element has at least one member in the multiset without bounds
+            /// checks.
+            ///
+            /// # Safety
+            /// Does not do bounds check on whether this element is an index in the underlying
+            /// SIMD vector.
             #[inline]
             pub unsafe fn contains_unchecked(self, elem: usize) -> bool {
                 self.data.extract_unchecked(elem) > <$scalar>::ZERO
             }
 
+            /// Returns a multiset which is the intersection of `self` and `other`.
+            ///
+            /// The Intersection of two multisets A & B is defined as the multiset C where
+            /// C`[0]` == min(A`[0]`, B`[0]`).
             #[inline]
             pub fn intersection(&self, other: &Self) -> Self {
                 Multiset {
@@ -104,6 +95,10 @@ macro_rules! multiset_simd {
                 }
             }
 
+            /// Returns a multiset which is the union of `self` and `other`.
+            ///
+            /// The union of two multisets A & B is defined as the multiset C where
+            /// C`[0]` == max(A`[0]`, B`[0]`).
             #[inline]
             pub fn union(&self, other: &Self) -> Self {
                 Multiset {
@@ -111,63 +106,95 @@ macro_rules! multiset_simd {
                 }
             }
 
+            /// Return the number of elements whose member count is zero.
             #[inline]
             pub fn count_zero(&self) -> u32 {
                 self.data.eq(<$simd>::ZERO).bitmask().count_ones()
             }
 
+            /// Return the number of elements whose member count is non-zero.
             #[inline]
             pub fn count_non_zero(&self) -> u32 {
                 self.data.gt(<$simd>::ZERO).bitmask().count_ones()
             }
 
+            /// Check whether all elements have zero members.
             #[inline]
             pub fn is_empty(&self) -> bool {
                 self.data == <$simd>::ZERO
             }
 
+            /// Check whether only one element has one or more members.
             #[inline]
             pub fn is_singleton(&self) -> bool {
                 self.count_non_zero() == 1
             }
 
+            /// Check whether `self` is a subset of `other`.
+            ///
+            /// Multisets A is a subset of B if A`[i]` <= B`[i]` for all `i` in A.
             #[inline]
             pub fn is_subset(&self, other: &Self) -> bool {
                 self.data.le(other.data).all()
             }
 
+            /// Check whether `self` is a superset of `other`.
+            ///
+            /// Multisets A is a superset of B if A`[i]` >= B`[i]` for all `i` in A.
             #[inline]
             pub fn is_superset(&self, other: &Self) -> bool {
                 self.data.ge(other.data).all()
             }
 
+            /// Check whether `self` is a proper subset of `other`.
+            ///
+            /// Multisets A is a proper subset of B if A`[i]` <= B`[i]` for all `i` in A and there
+            /// exists `j` such that A`[j]` < B`[j]`.
             #[inline]
             pub fn is_proper_subset(&self, other: &Self) -> bool {
                 self.is_subset(other) && self.is_any_lesser(other)
             }
 
+            /// Check whether `self` is a proper superset of `other`.
+            ///
+            /// Multisets A is a proper superset of B if A`[i]` >= B`[i]` for all `i` in A and
+            /// there exists `j` such that A`[j]` > B`[j]`.
             #[inline]
             pub fn is_proper_superset(&self, other: &Self) -> bool {
                 self.is_superset(other) && self.is_any_greater(other)
             }
 
+            /// Check whether any element of `self` is less than an element of `other`.
+            ///
+            /// True if the exists some `i` such that A`[i]` < B`[i]`.
             #[inline]
             pub fn is_any_lesser(&self, other: &Self) -> bool {
                 self.data.lt(other.data).any()
             }
 
+            /// Check whether any element of `self` is greater than an element of `other`.
+            ///
+            /// True if the exists some `i` such that A`[i]` > B`[i]`.
             #[inline]
             pub fn is_any_greater(&self, other: &Self) -> bool {
                 self.data.gt(other.data).any()
             }
 
-            /// May overflow & warning: horizontal
+            /// The total or cardinality of a multiset is the sum of all its elements member counts.
+            ///
+            /// Notes:
+            /// - This may overflow.
+            /// - The implementation uses a horizontal operation on SIMD vectors.
             #[inline]
             pub fn total(&self) -> $scalar {
                 self.data.wrapping_sum()
             }
 
-            /// Horizontal
+            /// Returns a tuple containing the (element, corresponding largest member count) in the
+            /// multiset.
+            ///
+            /// Notes:
+            /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
             pub fn argmax(&self) -> (usize, $scalar) {
                 let mut the_max = unsafe { self.data.extract_unchecked(0) };
@@ -183,19 +210,29 @@ macro_rules! multiset_simd {
                 (the_i, the_max)
             }
 
-            /// Horizontal
+            /// Returns the element corresponding to the largest member count in the multiset.
+            ///
+            /// Notes:
+            /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
             pub fn imax(&self) -> usize {
                 self.argmax().0
             }
 
-            /// Horizontal
+            /// Returns the largest member count in the multiset.
+            ///
+            /// Notes:
+            /// - The implementation uses a horizontal operation on the underlying SIMD vector.
             #[inline]
             pub fn max(&self) -> $scalar {
                 self.data.max_element()
             }
 
-            /// Horizontal
+            /// Returns a tuple containing the (element, corresponding smallest member count) in the
+            /// multiset.
+            ///
+            /// Notes:
+            /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
             pub fn argmin(&self) -> (usize, $scalar) {
                 let mut the_min = unsafe { self.data.extract_unchecked(0) };
@@ -211,25 +248,35 @@ macro_rules! multiset_simd {
                 (the_i, the_min)
             }
 
-            /// Horizontal
+            /// Returns the element corresponding to the smallest member count in the multiset.
+            ///
+            /// Notes:
+            /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
             pub fn imin(&self) -> usize {
                 self.argmin().0
             }
 
-            /// Horizontal
+            /// Returns the smallest member count in the multiset.
+            ///
+            /// Notes:
+            /// - The implementation uses a horizontal operation on the underlying SIMD vector.
             #[inline]
             pub fn min(&self) -> $scalar {
                 self.data.min_element()
             }
 
+            /// Set all elements member counts, except for the given `elem`, to zero.
             #[inline]
             pub fn choose(&mut self, elem: usize) {
                 let mask = <$simd_m>::splat(false).replace(elem, true);
                 self.data = mask.select(self.data, <$simd>::ZERO)
             }
 
-            /// Horizontal, really bad
+            /// Set all elements member counts, except for a random one, to zero.
+            ///
+            /// Notes:
+            /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
             pub fn choose_random(&mut self, rng: &mut StdRng) {
                 let choice_value = rng.gen_range(<$scalar>::ZERO, self.total() + <$scalar>::ONE);
@@ -245,7 +292,10 @@ macro_rules! multiset_simd {
                 self.choose(elem)
             }
 
-            /// partial horizontal
+            /// Calculate the collision entropy of the multiset.
+            ///
+            /// Notes:
+            /// - The implementation uses a horizontal operation on SIMD vectors.
             #[inline]
             pub fn collision_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
@@ -253,7 +303,10 @@ macro_rules! multiset_simd {
                 -(data / total).powf(<$simd_f>::splat(2.0)).sum().log2()
             }
 
-            /// partial horizontal
+            /// Calculate the shannon entropy of the multiset. Uses ln rather than log2.
+            ///
+            /// Notes:
+            /// - The implementation uses a horizontal operation on SIMD vectors.
             #[inline]
             pub fn shannon_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
@@ -274,6 +327,16 @@ multiset_simd!(u16x8, u16, f64x8, m16x8);
 multiset_simd!(u32x2, u32, f64x2, m32x2);
 multiset_simd!(u32x4, u32, f64x4, m32x4);
 multiset_simd!(u32x8, u32, f64x8, m32x8);
+
+// Defines multiset aliases of the form: "MS0u32x4", with the type typenum::U0 built in. Each alias
+// of this type uses the simd vector directly to store values in the multiset.
+macro_rules! ms0_type {
+    ($($elem_typ:ty),*) => {
+        paste! { $(pub type [<MS0 $elem_typ>] = Multiset<$elem_typ, typenum::U0>; )* }
+    }
+}
+
+ms0_type!(u8x2, u8x4, u8x8, u16x2, u16x4, u16x8, u32x2, u32x4, u32x8);
 
 #[cfg(test)]
 mod tests {

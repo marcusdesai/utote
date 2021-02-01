@@ -35,11 +35,13 @@ fn from_slice(c: &mut Criterion) {
 fn intersection(c: &mut Criterion) {
     let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
 
-    c.bench_function("intersection MS4u32", |b| b.iter(|| {
-        let set1 = MS4u32::from_slice(&_random_array(rng));
-        let set2 = MS4u32::from_slice(&_random_array(rng));
-        black_box(set1.intersection(&set2))
-    }));
+    c.bench_function("intersection MS4u32", |b| {
+        b.iter(|| {
+            let set1 = MS4u32::from_slice(&_random_array(rng));
+            let set2 = MS4u32::from_slice(&_random_array(rng));
+            black_box(set1.intersection(&set2))
+        })
+    });
 
     c.bench_function("intersection MS0u32x4", |b| {
         let set1 = MS0u32x4::from_slice(&_random_array(rng));
@@ -63,11 +65,13 @@ fn intersection(c: &mut Criterion) {
 fn union(c: &mut Criterion) {
     let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
 
-    c.bench_function("union MS4u32", |b| b.iter(|| {
-        let set1 = MS4u32::from_slice(&_random_array(rng));
-        let set2 = MS4u32::from_slice(&_random_array(rng));
-        black_box(set1.union(&set2))
-    }));
+    c.bench_function("union MS4u32", |b| {
+        b.iter(|| {
+            let set1 = MS4u32::from_slice(&_random_array(rng));
+            let set2 = MS4u32::from_slice(&_random_array(rng));
+            black_box(set1.union(&set2))
+        })
+    });
 
     c.bench_function("union MS0u32x4", |b| {
         let set1 = MS0u32x4::from_slice(&_random_array(rng));
@@ -202,6 +206,6 @@ criterion_group!(
     union,
     collision_entropy,
     shannon_entropy,
-    // count_non_zero,
+    count_non_zero,
 );
 criterion_main!(benches);
