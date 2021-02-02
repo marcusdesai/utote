@@ -19,7 +19,7 @@ The compiler is very good at auto-vectorising in micro-benchmarks, but use expli
 ### Basic Example
 
 ```rust
-use utote::Multiset;
+use utote::scalar::MSu8;
 ```
 
 ### Future

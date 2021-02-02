@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::iter::FromIterator;
 use typenum::U0;
 
-use crate::multiset::Multiset;
+use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd {
@@ -25,11 +25,43 @@ macro_rules! multiset_simd {
             }
         }
 
-        impl PartialOrd for Multiset<$simd, U0> {
+        impl PartialOrd for $alias {
             partial_ord_body!();
         }
 
-        impl Multiset<$simd, U0> {
+        impl IntoIterator for $alias {
+            type Item = $scalar;
+            type IntoIter = MultisetIterator<$simd, U0>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                MultisetIterator {
+                    multiset: self,
+                    index: 0
+                }
+            }
+        }
+
+        impl Iterator for MultisetIterator<$simd, U0> {
+            type Item = $scalar;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index >= <$alias>::len() {
+                    None
+                } else {
+                    let result = unsafe { self.multiset.data.extract_unchecked(self.index) };
+                    self.index += 1;
+                    Some(result)
+                }
+            }
+        }
+
+        impl ExactSizeIterator for MultisetIterator<$simd, U0> {
+            fn len(&self) -> usize {
+                <$alias>::len()
+            }
+        }
+
+        impl $alias {
             /// Returns a Multiset of the given SIMD vector size with all elements set to zero.
             #[inline]
             pub const fn empty() -> Self {

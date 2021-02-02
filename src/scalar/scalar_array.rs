@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::iter::FromIterator;
 use typenum::{UInt, Unsigned};
 
-use crate::multiset::Multiset;
+use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_scalar_array {
@@ -30,14 +30,55 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U, B> PartialOrd for Multiset<$scalar, UInt<U, B>>
+        impl<U, B> PartialOrd for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
             partial_ord_body!();
         }
 
-        impl<U, B> Multiset<$scalar, UInt<U, B>>
+        impl<U, B> IntoIterator for $alias
+            where
+                UInt<U, B>: ArrayLength<$scalar>,
+        {
+            type Item = $scalar;
+            type IntoIter = MultisetIterator<$scalar, UInt::<U, B>>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                MultisetIterator {
+                    multiset: self,
+                    index: 0
+                }
+            }
+        }
+
+        impl<U, B> Iterator for MultisetIterator<$scalar, UInt::<U, B>>
+            where
+                UInt<U, B>: ArrayLength<$scalar>,
+        {
+            type Item = $scalar;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index >= <$alias>::len() {
+                    None
+                } else {
+                    let result = unsafe { *self.multiset.data.get_unchecked(self.index) };
+                    self.index += 1;
+                    Some(result)
+                }
+            }
+        }
+
+        impl<U, B> ExactSizeIterator for MultisetIterator<$scalar, UInt::<U, B>>
+            where
+                UInt<U, B>: ArrayLength<$scalar>,
+        {
+            fn len(&self) -> usize {
+                <$alias>::len()
+            }
+        }
+
+        impl<U, B> $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {

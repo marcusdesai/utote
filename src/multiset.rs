@@ -35,6 +35,11 @@ impl<N, U: MultisetStorage<N>> PartialEq for Multiset<N, U>
     }
 }
 
+pub struct MultisetIterator<N, U: MultisetStorage<N>> {
+    pub(crate) multiset: Multiset<N, U>,
+    pub(crate) index: usize
+}
+
 impl<N> AddAssign for Multiset<N, U0>
     where
         N: AddAssign,

@@ -1,6 +1,6 @@
 [package]
 name = "utote"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Marcus Desai <marcus.desai@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -25,3 +25,6 @@ criterion = { version = "0.3.4", features = ["html_reports"] }
 [[bench]]
 name = "benches"
 harness = false
+
+[package.metadata.docs.rs]
+all-features = true

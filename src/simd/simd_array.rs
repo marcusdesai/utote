@@ -6,12 +6,12 @@ use std::cmp::Ordering;
 use std::iter::FromIterator;
 use typenum::{UInt, Unsigned};
 
-use crate::multiset::Multiset;
+use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd_array {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
-        impl<U, B> FromIterator<$scalar> for Multiset<$simd, UInt<U, B>>
+        impl<U, B> FromIterator<$scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -34,14 +34,61 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U, B> PartialOrd for Multiset<$simd, UInt<U, B>>
+        impl<U, B> PartialOrd for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
             partial_ord_body!();
         }
 
-        impl<U, B> Multiset<$simd, UInt<U, B>>
+        impl<U, B> IntoIterator for $alias
+            where
+                UInt<U, B>: ArrayLength<$simd>,
+        {
+            type Item = $scalar;
+            type IntoIter = MultisetIterator<$simd, UInt::<U, B>>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                MultisetIterator {
+                    multiset: self,
+                    index: 0
+                }
+            }
+        }
+
+        impl<U, B> Iterator for MultisetIterator<$simd, UInt::<U, B>>
+            where
+                UInt<U, B>: ArrayLength<$simd>,
+        {
+            type Item = $scalar;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index >= <$alias>::len() {
+                    None
+                } else {
+                    let array_index = self.index / <$simd>::lanes();
+                    let vector_index = self.index % <$simd>::lanes();
+                    let result = unsafe {
+                        self.multiset.data
+                            .get_unchecked(array_index)
+                            .extract_unchecked(vector_index)
+                    };
+                    self.index += 1;
+                    Some(result)
+                }
+            }
+        }
+
+        impl<U, B> ExactSizeIterator for MultisetIterator<$simd, UInt::<U, B>>
+            where
+                UInt<U, B>: ArrayLength<$simd>,
+        {
+            fn len(&self) -> usize {
+                <$alias>::len()
+            }
+        }
+
+        impl<U, B> $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -404,12 +451,12 @@ macro_rules! multiset_simd_array {
 multiset_simd_array!(MSu8x2<UInt<U, B>>, u8x2, u8, f64x2, m8x2);
 multiset_simd_array!(MSu8x4<UInt<U, B>>, u8x4, u8, f64x4, m8x4);
 multiset_simd_array!(MSu8x8<UInt<U, B>>, u8x8, u8, f64x8, m8x8);
-multiset_simd_array!(uMS16x2<UInt<U, B>>, u16x2, u16, f64x2, m16x2);
-multiset_simd_array!(uMS16x4<UInt<U, B>>, u16x4, u16, f64x4, m16x4);
-multiset_simd_array!(uMS16x8<UInt<U, B>>, u16x8, u16, f64x8, m16x8);
-multiset_simd_array!(uMS32x2<UInt<U, B>>, u32x2, u32, f64x2, m32x2);
-multiset_simd_array!(uMS32x4<UInt<U, B>>, u32x4, u32, f64x4, m32x4);
-multiset_simd_array!(uMS32x8<UInt<U, B>>, u32x8, u32, f64x8, m32x8);
+multiset_simd_array!(MSu16x2<UInt<U, B>>, u16x2, u16, f64x2, m16x2);
+multiset_simd_array!(MSu16x4<UInt<U, B>>, u16x4, u16, f64x4, m16x4);
+multiset_simd_array!(MSu16x8<UInt<U, B>>, u16x8, u16, f64x8, m16x8);
+multiset_simd_array!(MSu32x2<UInt<U, B>>, u32x2, u32, f64x2, m32x2);
+multiset_simd_array!(MSu32x4<UInt<U, B>>, u32x4, u32, f64x4, m32x4);
+multiset_simd_array!(MSu32x8<UInt<U, B>>, u32x8, u32, f64x8, m32x8);
 
 multiset_type!(u8x2, u8x4, u8x8, u16x2, u16x4, u16x8, u32x2, u32x4, u32x8);
 
