@@ -2,7 +2,7 @@
 
 Stack allocated uint multiset, with optional SIMD implementations.
 
-> :warning: This library is **not** stable: expect API changes with each release.
+> :warning: This crate is **not** stable: expect API changes with each release.
 
 Segregated use of `packed_simd_2` behind feature flags, requires nightly. The scalar multiset implementation is usable on stable.
 

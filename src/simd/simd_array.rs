@@ -10,7 +10,7 @@ use crate::multiset::Multiset;
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd_array {
-    ($simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
+    ($alias:ty, $simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
         impl<U, B> FromIterator<$scalar> for Multiset<$simd, UInt<U, B>>
             where
                 UInt<U, B>: ArrayLength<$simd>,
@@ -45,13 +45,15 @@ macro_rules! multiset_simd_array {
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
-            ///
+            /// Returns a Multiset of the given array * SIMD vector size with all elements set to
+            /// zero.
             #[inline]
             pub fn empty() -> Self {
                 Self::repeat(<$scalar>::ZERO)
             }
 
-            ///
+            /// Returns a Multiset of the given array * SIMD vector size with all elements set to
+            /// `elem`.
             #[inline]
             pub fn repeat(elem: $scalar) -> Self {
                 let mut res = unsafe { Multiset::new_uninitialized() };
@@ -61,7 +63,7 @@ macro_rules! multiset_simd_array {
                 res
             }
 
-            ///
+            /// Returns a Multiset from a slice of the given array * SIMD vector size.
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self {
                 assert_eq!(slice.len(), Self::len());
@@ -399,15 +401,15 @@ macro_rules! multiset_simd_array {
     };
 }
 
-multiset_simd_array!(u8x2, u8, f64x2, m8x2);
-multiset_simd_array!(u8x4, u8, f64x4, m8x4);
-multiset_simd_array!(u8x8, u8, f64x8, m8x8);
-multiset_simd_array!(u16x2, u16, f64x2, m16x2);
-multiset_simd_array!(u16x4, u16, f64x4, m16x4);
-multiset_simd_array!(u16x8, u16, f64x8, m16x8);
-multiset_simd_array!(u32x2, u32, f64x2, m32x2);
-multiset_simd_array!(u32x4, u32, f64x4, m32x4);
-multiset_simd_array!(u32x8, u32, f64x8, m32x8);
+multiset_simd_array!(MSu8x2<UInt<U, B>>, u8x2, u8, f64x2, m8x2);
+multiset_simd_array!(MSu8x4<UInt<U, B>>, u8x4, u8, f64x4, m8x4);
+multiset_simd_array!(MSu8x8<UInt<U, B>>, u8x8, u8, f64x8, m8x8);
+multiset_simd_array!(uMS16x2<UInt<U, B>>, u16x2, u16, f64x2, m16x2);
+multiset_simd_array!(uMS16x4<UInt<U, B>>, u16x4, u16, f64x4, m16x4);
+multiset_simd_array!(uMS16x8<UInt<U, B>>, u16x8, u16, f64x8, m16x8);
+multiset_simd_array!(uMS32x2<UInt<U, B>>, u32x2, u32, f64x2, m32x2);
+multiset_simd_array!(uMS32x4<UInt<U, B>>, u32x4, u32, f64x4, m32x4);
+multiset_simd_array!(uMS32x8<UInt<U, B>>, u32x8, u32, f64x8, m32x8);
 
 multiset_type!(u8x2, u8x4, u8x8, u16x2, u16x4, u16x8, u32x2, u32x4, u32x8);
 

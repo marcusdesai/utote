@@ -9,8 +9,8 @@ use crate::multiset::Multiset;
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_scalar_array {
-    ($($scalar:ty),*) => {
-        $(impl<U, B> FromIterator<$scalar> for Multiset<$scalar, UInt<U, B>>
+    ($($alias:ty, $scalar:ty),*) => {
+        $(impl<U, B> FromIterator<$scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
@@ -332,7 +332,7 @@ macro_rules! multiset_scalar_array {
     }
 }
 
-multiset_scalar_array!(u8, u16, u32);
+multiset_scalar_array!(MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32);
 
 multiset_type!(u8, u16, u32);
 

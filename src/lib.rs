@@ -14,9 +14,7 @@ pub mod multiset;
 mod tests;
 #[macro_use]
 mod common;
-mod array;
 mod small_num;
 
 pub mod scalar;
-#[cfg(feature = "packed_simd")]
 pub mod simd;
