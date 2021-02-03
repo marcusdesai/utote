@@ -9,7 +9,7 @@ use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd {
-    ($alias:ty, $simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
+    ($alias:ty, $simd:ty, $scalar:ty, $simd_mask:ty) => {
         impl FromIterator<$scalar> for $alias {
             #[inline]
             fn from_iter<T: IntoIterator<Item = $scalar>>(iter: T) -> Self {
@@ -301,7 +301,7 @@ macro_rules! multiset_simd {
             /// Set all elements member counts, except for the given `elem`, to zero.
             #[inline]
             pub fn choose(&mut self, elem: usize) {
-                let mask = <$simd_m>::splat(false).replace(elem, true);
+                let mask = <$simd_mask>::splat(false).replace(elem, true);
                 self.data = mask.select(self.data, <$simd>::ZERO)
             }
 
@@ -323,7 +323,37 @@ macro_rules! multiset_simd {
                 }
                 self.choose(elem)
             }
+        }
+    };
+}
 
+multiset_simd!(MS0u8x2, u8x2, u8, m8x2);
+multiset_simd!(MS0u8x4, u8x4, u8, m8x4);
+multiset_simd!(MS0u8x8, u8x8, u8, m8x8);
+multiset_simd!(MS0u8x16, u8x16, u8, m8x16);
+multiset_simd!(MS0u8x32, u8x32, u8, m8x32);
+multiset_simd!(MS0u8x64, u8x64, u8, m8x64);
+multiset_simd!(MS0u16x2, u16x2, u16, m16x2);
+multiset_simd!(MS0u16x4, u16x4, u16, m16x4);
+multiset_simd!(MS0u16x8, u16x8, u16, m16x8);
+multiset_simd!(MS0u16x16, u16x16, u16, m16x16);
+multiset_simd!(MS0u16x32, u16x32, u16, m16x32);
+multiset_simd!(MS0u32x2, u32x2, u32, m32x2);
+multiset_simd!(MS0u32x4, u32x4, u32, m32x4);
+multiset_simd!(MS0u32x8, u32x8, u32, m32x8);
+multiset_simd!(MS0u32x16, u32x16, u32, m32x16);
+multiset_simd!(MS0u64x2, u64x2, u64, m64x2);
+multiset_simd!(MS0u64x4, u64x4, u64, m64x4);
+multiset_simd!(MS0u64x8, u64x8, u64, m64x8);
+
+// Any alias where the simd type has an f64 equivalent lane-wise, can use this implementation.
+macro_rules! multiset_simd_stats {
+    ($alias:ty, $simd:ty, $scalar:ty, $simd_float:ty) => {
+        impl $alias
+            where
+                f64: From<$scalar>,
+                $simd_float: From<$simd>,
+        {
             /// Calculate the collision entropy of the multiset.
             ///
             /// Notes:
@@ -331,8 +361,8 @@ macro_rules! multiset_simd {
             #[inline]
             pub fn collision_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
-                let data = <$simd_f>::from(self.data);
-                -(data / total).powf(<$simd_f>::splat(2.0)).sum().log2()
+                let data = <$simd_float>::from(self.data);
+                -(data / total).powf(<$simd_float>::splat(2.0)).sum().log2()
             }
 
             /// Calculate the shannon entropy of the multiset. Uses ln rather than log2.
@@ -342,23 +372,23 @@ macro_rules! multiset_simd {
             #[inline]
             pub fn shannon_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
-                let prob = <$simd_f>::from(self.data) / total;
+                let prob = <$simd_float>::from(self.data) / total;
                 let data = prob * prob.ln();
-                -data.is_nan().select(<$simd_f>::ZERO, data).sum()
+                -data.is_nan().select(<$simd_float>::ZERO, data).sum()
             }
         }
-    };
+    }
 }
 
-multiset_simd!(MS0u8x2, u8x2, u8, f64x2, m8x2);
-multiset_simd!(MS0u8x4, u8x4, u8, f64x4, m8x4);
-multiset_simd!(MS0u8x8, u8x8, u8, f64x8, m8x8);
-multiset_simd!(MS0u16x2, u16x2, u16, f64x2, m16x2);
-multiset_simd!(MS0u16x4, u16x4, u16, f64x4, m16x4);
-multiset_simd!(MS0u16x8, u16x8, u16, f64x8, m16x8);
-multiset_simd!(MS0u32x2, u32x2, u32, f64x2, m32x2);
-multiset_simd!(MS0u32x4, u32x4, u32, f64x4, m32x4);
-multiset_simd!(MS0u32x8, u32x8, u32, f64x8, m32x8);
+multiset_simd_stats!(MS0u8x2, u8x2, u8, f64x2);
+multiset_simd_stats!(MS0u8x4, u8x4, u8, f64x4);
+multiset_simd_stats!(MS0u8x8, u8x8, u8, f64x8);
+multiset_simd_stats!(MS0u16x2, u16x2, u16, f64x2);
+multiset_simd_stats!(MS0u16x4, u16x4, u16, f64x4);
+multiset_simd_stats!(MS0u16x8, u16x8, u16, f64x8);
+multiset_simd_stats!(MS0u32x2, u32x2, u32, f64x2);
+multiset_simd_stats!(MS0u32x4, u32x4, u32, f64x4);
+multiset_simd_stats!(MS0u32x8, u32x8, u32, f64x8);
 
 // Defines multiset aliases of the form: "MS0u32x4", with the type typenum::U0 built in. Each alias
 // of this type uses the simd vector directly to store values in the multiset.
@@ -368,7 +398,10 @@ macro_rules! ms0_type {
     }
 }
 
-ms0_type!(u8x2, u8x4, u8x8, u16x2, u16x4, u16x8, u32x2, u32x4, u32x8);
+ms0_type!(
+    u8x2, u8x4, u8x8, u8x16, u8x32, u8x64, u16x2, u16x4, u16x8, u16x16, u16x32, u32x2, u32x4,
+    u32x8, u32x16, u64x2, u64x4, u64x8
+);
 
 #[cfg(test)]
 mod tests {

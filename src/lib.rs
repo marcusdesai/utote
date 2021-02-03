@@ -6,9 +6,11 @@ to enable generically sized static multisets. Optionally the [__packed_simd__ cr
 can be enabled (requires nightly) to allow for multisets which are built either from an array of
 SIMD vectors, or directly from a single SIMD vector. Although the compiler is very good at
 auto-vectorising code, these capabilities are provided so that you can explicitly direct the
-compiler to use SIMD and fail otherwise.
+compiler to use SIMD vectors, if they are available.
 */
-pub mod multiset;
+mod multiset;
+pub use multiset::*;
+
 #[macro_use]
 #[allow(unused_macros)]
 mod tests;
@@ -16,5 +18,10 @@ mod tests;
 mod common;
 mod small_num;
 
-pub mod scalar;
-pub mod simd;
+mod scalar;
+pub use scalar::*;
+
+#[cfg(feature = "packed_simd")]
+mod simd;
+#[cfg(feature = "packed_simd")]
+pub use simd::*;

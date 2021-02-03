@@ -10,7 +10,7 @@ use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd_array {
-    ($alias:ty, $simd:ty, $scalar:ty, $simd_f:ty, $simd_m:ty) => {
+    ($alias:ty, $simd:ty, $scalar:ty, $simd_mask:ty) => {
         impl<U, B> FromIterator<$scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
@@ -372,7 +372,7 @@ macro_rules! multiset_simd_array {
                 for i in 0..UInt::<U, B>::USIZE {
                     let data = unsafe { self.data.get_unchecked_mut(i) };
                     if i == array_index {
-                        let mask = <$simd_m>::splat(false).replace(vector_index, true);
+                        let mask = <$simd_mask>::splat(false).replace(vector_index, true);
                         *data = mask.select(*data, <$simd>::ZERO)
                     } else {
                         *data *= <$scalar>::ZERO
@@ -404,7 +404,7 @@ macro_rules! multiset_simd_array {
                             }
                         }
                         if chosen {
-                            let mask = <$simd_m>::splat(false).replace(vector_index, true);
+                            let mask = <$simd_mask>::splat(false).replace(vector_index, true);
                             *elem_vec = mask.select(*elem_vec, <$simd>::ZERO)
                         } else {
                             *elem_vec *= <$scalar>::ZERO
@@ -412,7 +412,38 @@ macro_rules! multiset_simd_array {
                     }
                 }
             }
+        }
+    };
+}
 
+multiset_simd_array!(MSu8x2<UInt<U, B>>, u8x2, u8, m8x2);
+multiset_simd_array!(MSu8x4<UInt<U, B>>, u8x4, u8, m8x4);
+multiset_simd_array!(MSu8x8<UInt<U, B>>, u8x8, u8, m8x8);
+multiset_simd_array!(MSu8x16<UInt<U, B>>, u8x16, u8, m8x16);
+multiset_simd_array!(MSu8x32<UInt<U, B>>, u8x32, u8, m8x32);
+multiset_simd_array!(MSu8x64<UInt<U, B>>, u8x64, u8, m8x64);
+multiset_simd_array!(MSu16x2<UInt<U, B>>, u16x2, u16, m16x2);
+multiset_simd_array!(MSu16x4<UInt<U, B>>, u16x4, u16, m16x4);
+multiset_simd_array!(MSu16x8<UInt<U, B>>, u16x8, u16, m16x8);
+multiset_simd_array!(MSu16x16<UInt<U, B>>, u16x16, u16, m16x16);
+multiset_simd_array!(MSu16x32<UInt<U, B>>, u16x32, u16, m16x32);
+multiset_simd_array!(MSu32x2<UInt<U, B>>, u32x2, u32, m32x2);
+multiset_simd_array!(MSu32x4<UInt<U, B>>, u32x4, u32, m32x4);
+multiset_simd_array!(MSu32x8<UInt<U, B>>, u32x8, u32, m32x8);
+multiset_simd_array!(MSu32x16<UInt<U, B>>, u32x16, u32, m32x16);
+multiset_simd_array!(MSu64x2<UInt<U, B>>, u64x2, u64, m8x2);
+multiset_simd_array!(MSu64x4<UInt<U, B>>, u64x4, u64, m8x4);
+multiset_simd_array!(MSu64x8<UInt<U, B>>, u64x8, u64, m8x8);
+
+// Any alias where the simd type has an f64 equivalent lane-wise, can use this implementation.
+macro_rules! multiset_simd_array_stats {
+    ($alias:ty, $simd:ty, $scalar:ty, $simd_float:ty) => {
+        impl<U, B> $alias
+            where
+                UInt<U, B>: ArrayLength<$simd>,
+                f64: From<$scalar>,
+                $simd_float: From<$simd>,
+        {
             /// Calculate the collision entropy of the multiset.
             ///
             /// Notes:
@@ -421,9 +452,9 @@ macro_rules! multiset_simd_array {
             pub fn collision_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
                 -self
-                    .fold(<$simd_f>::splat(0.0), |acc, vec| {
-                        let data = <$simd_f>::from(vec);
-                        acc + (data / total).powf(<$simd_f>::splat(2.0))
+                    .fold(<$simd_float>::ZERO, |acc, vec| {
+                        let data = <$simd_float>::from(vec);
+                        acc + (data / total).powf(<$simd_float>::splat(2.0))
                     })
                     .sum()
                     .log2()
@@ -437,28 +468,31 @@ macro_rules! multiset_simd_array {
             pub fn shannon_entropy(&self) -> f64 {
                 let total: f64 = From::from(self.total());
                 -self
-                    .fold(<$simd_f>::splat(0.0), |acc, vec| {
-                        let prob = <$simd_f>::from(vec) / total;
+                    .fold(<$simd_float>::ZERO, |acc, vec| {
+                        let prob = <$simd_float>::from(vec) / total;
                         let data = prob * prob.ln();
-                        acc + data.is_nan().select(<$simd_f>::ZERO, data)
+                        acc + data.is_nan().select(<$simd_float>::ZERO, data)
                     })
                     .sum()
             }
         }
-    };
+    }
 }
 
-multiset_simd_array!(MSu8x2<UInt<U, B>>, u8x2, u8, f64x2, m8x2);
-multiset_simd_array!(MSu8x4<UInt<U, B>>, u8x4, u8, f64x4, m8x4);
-multiset_simd_array!(MSu8x8<UInt<U, B>>, u8x8, u8, f64x8, m8x8);
-multiset_simd_array!(MSu16x2<UInt<U, B>>, u16x2, u16, f64x2, m16x2);
-multiset_simd_array!(MSu16x4<UInt<U, B>>, u16x4, u16, f64x4, m16x4);
-multiset_simd_array!(MSu16x8<UInt<U, B>>, u16x8, u16, f64x8, m16x8);
-multiset_simd_array!(MSu32x2<UInt<U, B>>, u32x2, u32, f64x2, m32x2);
-multiset_simd_array!(MSu32x4<UInt<U, B>>, u32x4, u32, f64x4, m32x4);
-multiset_simd_array!(MSu32x8<UInt<U, B>>, u32x8, u32, f64x8, m32x8);
+multiset_simd_array_stats!(MSu8x2<UInt<U, B>>, u8x2, u8, f64x2);
+multiset_simd_array_stats!(MSu8x4<UInt<U, B>>, u8x4, u8, f64x4);
+multiset_simd_array_stats!(MSu8x8<UInt<U, B>>, u8x8, u8, f64x8);
+multiset_simd_array_stats!(MSu16x2<UInt<U, B>>, u16x2, u16, f64x2);
+multiset_simd_array_stats!(MSu16x4<UInt<U, B>>, u16x4, u16, f64x4);
+multiset_simd_array_stats!(MSu16x8<UInt<U, B>>, u16x8, u16, f64x8);
+multiset_simd_array_stats!(MSu32x2<UInt<U, B>>, u32x2, u32, f64x2);
+multiset_simd_array_stats!(MSu32x4<UInt<U, B>>, u32x4, u32, f64x4);
+multiset_simd_array_stats!(MSu32x8<UInt<U, B>>, u32x8, u32, f64x8);
 
-multiset_type!(u8x2, u8x4, u8x8, u16x2, u16x4, u16x8, u32x2, u32x4, u32x8);
+multiset_type!(
+    u8x2, u8x4, u8x8, u8x16, u8x32, u8x64, u16x2, u16x4, u16x8, u16x16, u16x32, u32x2, u32x4,
+    u32x8, u32x16, u64x2, u64x4, u64x8
+);
 
 #[cfg(test)]
 mod tests {

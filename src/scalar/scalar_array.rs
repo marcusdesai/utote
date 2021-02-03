@@ -346,7 +346,22 @@ macro_rules! multiset_scalar_array {
                     }
                 })
             }
+        })*
+    }
+}
 
+multiset_scalar_array!(
+    MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32, MSu64<UInt<U, B>>, u64
+);
+
+// Any alias where the scalar type can lossless cast to f64 can use this implementation.
+macro_rules! multiset_scalar_array_stats {
+    ($($alias:ty, $scalar:ty),*) => {
+        $(impl<U, B> $alias
+            where
+                UInt<U, B>: ArrayLength<$scalar>,
+                f64: From<$scalar>,
+        {
             /// Calculate the collision entropy of the multiset.
             #[inline]
             pub fn collision_entropy(&self) -> f64 {
@@ -373,9 +388,9 @@ macro_rules! multiset_scalar_array {
     }
 }
 
-multiset_scalar_array!(MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32);
+multiset_scalar_array_stats!(MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32);
 
-multiset_type!(u8, u16, u32);
+multiset_type!(u8, u16, u32, u64);
 
 #[cfg(test)]
 mod tests {
