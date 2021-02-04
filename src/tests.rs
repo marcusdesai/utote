@@ -9,6 +9,7 @@ macro_rules! tests_x4 {
 
             test_constructors!(MSType, 4);
             test_contains!(MSType, &[1, 0, 1, 0], &[0, 2], &[1, 3], &[4]);
+            test_insert_remove_get!(MSType, &[1, 0, 1, 0], 2, 3, 1);
             test_intersection_union!(
                 MSType,
                 &[2, 0, 4, 0],
@@ -53,6 +54,7 @@ macro_rules! tests_x8 {
                 &[1, 3, 6, 7],
                 &[9]
             );
+            test_insert_remove_get!(MSType, &[1, 0, 1, 0, 3, 4, 0, 0], 4, 1, 3);
             test_intersection_union!(
                 MSType,
                 &[2, 0, 4, 0, 7, 5, 0, 1],
@@ -146,6 +148,54 @@ macro_rules! test_contains {
                     assert!(!set.contains_unchecked(*elem));
                 });
             }
+        }
+    };
+}
+
+macro_rules! test_insert_remove_get {
+    ($typ:ty, $slice:expr, $elem:expr, $insert:expr, $get:expr) => {
+        #[test]
+        fn test_insert() {
+            let mut set = <$typ>::from_slice($slice);
+            set.insert($elem, $insert);
+            assert_eq!(set.get($elem), Some($insert))
+        }
+
+        #[test]
+        fn test_insert_unchecked() {
+            let mut set = <$typ>::from_slice($slice);
+            unsafe {
+                set.insert($elem, $insert);
+                assert_eq!(set.get_unchecked($elem), $insert)
+            }
+        }
+
+        #[test]
+        fn test_remove() {
+            let mut set = <$typ>::from_slice($slice);
+            set.remove($elem);
+            assert_eq!(set.get($elem), Some(0))
+        }
+
+        #[test]
+        fn test_remove_unchecked() {
+            let mut set = <$typ>::from_slice($slice);
+            unsafe {
+                set.remove($elem);
+                assert_eq!(set.get_unchecked($elem), 0)
+            }
+        }
+
+        #[test]
+        fn test_get() {
+            let set = <$typ>::from_slice($slice);
+            assert_eq!(set.get($elem), Some($get))
+        }
+
+        #[test]
+        fn test_get_unchecked() {
+            let set = <$typ>::from_slice($slice);
+            unsafe { assert_eq!(set.get_unchecked($elem), $get) }
         }
     };
 }
@@ -425,16 +475,3 @@ macro_rules! test_entropy {
         }
     };
 }
-
-// #[test]
-// fn test_shannon_entropy2() {
-//     let set1 = <$typ>::from_slice(&[4, 6, 1, 6]);
-//     let entropy = set1.shannon_entropy();
-//     let result1 = 1.2422550455140853;
-//     assert_relative_eq!(entropy, result1);
-//
-//     let set2 = <$typ>::from_slice(&[4, 6, 0, 6]);
-//     let entropy = set2.shannon_entropy();
-//     let result2 = 1.0821955300387673;
-//     assert_relative_eq!(entropy, result2);
-// }

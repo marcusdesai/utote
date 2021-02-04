@@ -21,7 +21,7 @@ impl<N, U, B> MultisetStorage<N> for UInt<U, B>
 }
 
 /// Multiset! yay
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash)]
 pub struct Multiset<N, U: MultisetStorage<N>> {
     pub(crate) data: U::Storage,
 }
@@ -34,6 +34,11 @@ impl<N, U: MultisetStorage<N>> PartialEq for Multiset<N, U>
         self.data == other.data
     }
 }
+
+impl<N, U: MultisetStorage<N>> Eq for Multiset<N, U>
+    where
+        Multiset<N, U>: PartialEq,
+{}
 
 pub struct MultisetIterator<N, U: MultisetStorage<N>> {
     pub(crate) multiset: Multiset<N, U>,

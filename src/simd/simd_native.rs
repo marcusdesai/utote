@@ -116,10 +116,66 @@ macro_rules! multiset_simd {
                 self.data.extract_unchecked(elem) > <$scalar>::ZERO
             }
 
+            /// Insert a given amount of an element into the multiset.
+            #[inline]
+            pub fn insert(&mut self, elem: usize, amount: $scalar) {
+                if elem < Self::len() {
+                    self.data = unsafe { self.data.replace_unchecked(elem, amount) };
+                }
+            }
+
+            /// Insert a given amount of an element into the multiset without bounds checks.
+            ///
+            /// # Safety
+            /// Does not do bounds check on whether this element is an index in the underlying
+            /// SIMD vector.
+            #[inline]
+            pub unsafe fn insert_unchecked(&mut self, elem: usize, amount: $scalar) {
+                self.data = self.data.replace_unchecked(elem, amount);
+            }
+
+            /// Set an element in the multiset to zero.
+            #[inline]
+            pub fn remove(&mut self, elem: usize) {
+                if elem < Self::len() {
+                    self.data = unsafe { self.data.replace_unchecked(elem, <$scalar>::ZERO) };
+                }
+            }
+
+            /// Set an element in the multiset to zero without bounds checks.
+            ///
+            /// # Safety
+            /// Does not do bounds check on whether this element is an index in the underlying
+            /// SIMD vector.
+            #[inline]
+            pub unsafe fn remove_unchecked(&mut self, elem: usize) {
+                self.data = self.data.replace_unchecked(elem, <$scalar>::ZERO);
+            }
+
+            /// Returns the amount of an element in the multiset.
+            #[inline]
+            pub fn get(self, elem: usize) -> Option<$scalar> {
+                if elem < Self::len() {
+                    unsafe { Some(self.data.extract_unchecked(elem)) }
+                } else {
+                    None
+                }
+            }
+
+            /// Returns the amount of an element in the multiset without bounds checks.
+            ///
+            /// # Safety
+            /// Does not do bounds check on whether this element is an index in the underlying
+            /// SIMD vector.
+            #[inline]
+            pub unsafe fn get_unchecked(self, elem: usize) -> $scalar {
+                self.data.extract_unchecked(elem)
+            }
+
             /// Returns a multiset which is the intersection of `self` and `other`.
             ///
             /// The Intersection of two multisets A & B is defined as the multiset C where
-            /// C`[0]` == min(A`[0]`, B`[0]`).
+            /// `C[0] == min(A[0], B[0]`).
             #[inline]
             pub fn intersection(&self, other: &Self) -> Self {
                 Multiset {
@@ -130,7 +186,7 @@ macro_rules! multiset_simd {
             /// Returns a multiset which is the union of `self` and `other`.
             ///
             /// The union of two multisets A & B is defined as the multiset C where
-            /// C`[0]` == max(A`[0]`, B`[0]`).
+            /// `C[0] == max(A[0], B[0]`).
             #[inline]
             pub fn union(&self, other: &Self) -> Self {
                 Multiset {
@@ -164,7 +220,7 @@ macro_rules! multiset_simd {
 
             /// Check whether `self` is a subset of `other`.
             ///
-            /// Multisets A is a subset of B if A`[i]` <= B`[i]` for all `i` in A.
+            /// Multisets A is a subset of B if `A[i] <= B[i]` for all `i` in A.
             #[inline]
             pub fn is_subset(&self, other: &Self) -> bool {
                 self.data.le(other.data).all()
@@ -172,7 +228,7 @@ macro_rules! multiset_simd {
 
             /// Check whether `self` is a superset of `other`.
             ///
-            /// Multisets A is a superset of B if A`[i]` >= B`[i]` for all `i` in A.
+            /// Multisets A is a superset of B if `A[i] >= B[i]` for all `i` in A.
             #[inline]
             pub fn is_superset(&self, other: &Self) -> bool {
                 self.data.ge(other.data).all()
@@ -180,8 +236,8 @@ macro_rules! multiset_simd {
 
             /// Check whether `self` is a proper subset of `other`.
             ///
-            /// Multisets A is a proper subset of B if A`[i]` <= B`[i]` for all `i` in A and there
-            /// exists `j` such that A`[j]` < B`[j]`.
+            /// Multisets A is a proper subset of B if `A[i] <= B[i]` for all `i` in A and there
+            /// exists `j` such that `A[j] < B[j]`.
             #[inline]
             pub fn is_proper_subset(&self, other: &Self) -> bool {
                 self.is_subset(other) && self.is_any_lesser(other)
@@ -189,8 +245,8 @@ macro_rules! multiset_simd {
 
             /// Check whether `self` is a proper superset of `other`.
             ///
-            /// Multisets A is a proper superset of B if A`[i]` >= B`[i]` for all `i` in A and
-            /// there exists `j` such that A`[j]` > B`[j]`.
+            /// Multisets A is a proper superset of B if `A[i] >= B[i]` for all `i` in A and
+            /// there exists `j` such that `A[j] > B[j]`.
             #[inline]
             pub fn is_proper_superset(&self, other: &Self) -> bool {
                 self.is_superset(other) && self.is_any_greater(other)
@@ -198,7 +254,7 @@ macro_rules! multiset_simd {
 
             /// Check whether any element of `self` is less than an element of `other`.
             ///
-            /// True if the exists some `i` such that A`[i]` < B`[i]`.
+            /// True if the exists some `i` such that `A[i] < B[i]`.
             #[inline]
             pub fn is_any_lesser(&self, other: &Self) -> bool {
                 self.data.lt(other.data).any()
@@ -206,13 +262,14 @@ macro_rules! multiset_simd {
 
             /// Check whether any element of `self` is greater than an element of `other`.
             ///
-            /// True if the exists some `i` such that A`[i]` > B`[i]`.
+            /// True if the exists some `i` such that `A[i] > B[i]`.
             #[inline]
             pub fn is_any_greater(&self, other: &Self) -> bool {
                 self.data.gt(other.data).any()
             }
 
-            /// The total or cardinality of a multiset is the sum of all its elements member counts.
+            /// The total or cardinality of a multiset is the sum of all its elements member
+            /// counts.
             ///
             /// Notes:
             /// - This may overflow.
@@ -260,8 +317,8 @@ macro_rules! multiset_simd {
                 self.data.max_element()
             }
 
-            /// Returns a tuple containing the (element, corresponding smallest member count) in the
-            /// multiset.
+            /// Returns a tuple containing the (element, corresponding smallest member count) in
+            /// the multiset.
             ///
             /// Notes:
             /// - The implementation extracts values from the underlying SIMD vector.
