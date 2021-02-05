@@ -20,6 +20,7 @@ macro_rules! tests_x4 {
             test_count_zero!(MSType, &[0, 0, 3, 0], 3, 1);
             test_is_empty!(MSType, &[2, 0, 4, 0]);
             test_is_singleton!(MSType, &[0, 3, 0, 0], &[1, 2, 3, 4]);
+            test_is_disjoint!(MSType, &[0, 3, 0, 0], &[1, 0, 3, 4], &[1, 2, 0, 0]);
             test_is_subset_superset!(MSType, &[2, 0, 4, 0], &[2, 0, 4, 1], &[1, 3, 4, 5]);
             test_total!(MSType, &[2, 1, 4, 3], 10);
             test_max_min!(MSType, &[1, 5, 2, 8], 3, 8, 0, 1);
@@ -65,6 +66,12 @@ macro_rules! tests_x8 {
             test_count_zero!(MSType, &[0, 0, 3, 0, 7, 4, 3, 1], 3, 5);
             test_is_empty!(MSType, &[2, 0, 4, 0, 0, 0, 1, 1]);
             test_is_singleton!(MSType, &[0, 3, 0, 0, 0, 0, 0, 0], &[1, 2, 3, 4, 1, 2, 3, 4]);
+            test_is_disjoint!(
+                MSType,
+                &[0, 3, 0, 0, 0, 0, 0, 0],
+                &[1, 0, 3, 4, 1, 2, 3, 4],
+                &[1, 2, 3, 4, 1, 2, 3, 4]
+            );
             test_is_subset_superset!(
                 MSType,
                 &[2, 0, 4, 0, 3, 1, 0, 5],
@@ -260,6 +267,20 @@ macro_rules! test_is_singleton {
 
             let c = <$typ>::empty();
             assert!(!c.is_singleton());
+        }
+    };
+}
+
+macro_rules! test_is_disjoint {
+    ($typ:ty, $slice1:expr, $slice2:expr, $slice3:expr) => {
+        #[test]
+        fn test_is_disjoint() {
+            let a = <$typ>::from_slice($slice1);
+            let b = <$typ>::from_slice($slice2);
+            let c = <$typ>::from_slice($slice3);
+
+            assert!(a.is_disjoint(&b));
+            assert!(!a.is_disjoint(&c));
         }
     };
 }
