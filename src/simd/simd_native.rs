@@ -62,6 +62,27 @@ macro_rules! multiset_simd {
         }
 
         impl $alias {
+
+            // todo? Should we use the below example code to parameterize all the doc tests by the
+            //  macro parameters? It's pretty ugly and certainly makes working with the doc-strings
+            //  harder. But it would also enable the docs to contain example code specific to the
+            //  type alias implementation, and we could get rid of the non-doc tests potentially.
+            // paste! {
+            //     #[doc="Returns a Multiset of the given SIMD vector size with all elements set to \
+            //         zero.\n\
+            //         # Examples\n\
+            //         ```no_run\n\
+            //         use utote::" $alias ";\n\
+            //         let multiset = " $alias "::empty();\n\
+            //         ```"]
+            //     #[inline]
+            //     pub const fn empty() -> Self {
+            //         Multiset {
+            //             data: <$simd>::ZERO,
+            //         }
+            //     }
+            // }
+
             /// Returns a Multiset of the given SIMD vector size with all elements set to zero.
             ///
             /// # Examples
@@ -165,7 +186,7 @@ macro_rules! multiset_simd {
             /// let multiset = MS0u16x4::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
             /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
-            /// // assert_eq!(unsafe { multiset.contains_unchecked(5) }, false);  NOT SAFE!!!
+            /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
             /// ```
             ///
             /// ### Notes:
@@ -679,15 +700,15 @@ macro_rules! multiset_simd {
                 self.data.min_element()
             }
 
-            /// Set all elements member counts, except for the given `elem`, to zero.
+            /// Set all element counts, except for the given `elem`, to zero.
             ///
             /// # Examples
             ///
             /// ```no_run
             /// use utote::MS0u16x4;
             /// let mut multiset = MS0u16x4::from_slice(&[2, 0, 5, 3]);
-            /// multiset.choose(3);
-            /// let result = MS0u16x4::from_slice(&[0, 0, 0, 3]);
+            /// multiset.choose(2);
+            /// let result = MS0u16x4::from_slice(&[0, 0, 5, 0]);
             /// assert_eq!(multiset, result);
             /// ```
             #[inline]
@@ -696,7 +717,7 @@ macro_rules! multiset_simd {
                 self.data = mask.select(self.data, <$simd>::ZERO)
             }
 
-            /// Set all elements member counts, except for a random choice, to zero. The choice is
+            /// Set all element counts, except for a random choice, to zero. The choice is
             /// weighted by the counts of the elements.
             ///
             /// # Examples

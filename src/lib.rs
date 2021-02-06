@@ -7,7 +7,7 @@ to enable generically sized static multisets.
 Each multiset is an ordered collection of unsigned counters, where the index of each counter is the
 element of the counter, and the value of that counter is the number of times that element occurrs
 in the multiset. A count of zero at index `i` indicates that element `i` is not in the multiset.
-Any multiset where all counters are zero is equivalent to to empty multiset.
+Any multiset where all counters are zero is equivalent to the empty multiset.
 
 ## Examples
 
@@ -15,7 +15,7 @@ Any multiset where all counters are zero is equivalent to to empty multiset.
 use utote::MSu8;
 use typenum::U4;
 
-// A multiset of 4 elements, which can be counted up to u8::MAX;
+// A multiset of 4 elements, which can be counted up to u8::MAX
 let multiset = MSu8::<U4>::from_slice(&[1, 3, 5, 7]);
 
 assert_eq!(multiset.total(), 16);

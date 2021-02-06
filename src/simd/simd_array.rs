@@ -211,7 +211,7 @@ macro_rules! multiset_simd_array {
             /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
             /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
-            /// // assert_eq!(unsafe { multiset.contains_unchecked(5) }, false);  NOT SAFE!!!
+            /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
             /// ```
             ///
             /// ### Notes:
@@ -795,7 +795,7 @@ macro_rules! multiset_simd_array {
                     .min_element()
             }
 
-            /// Set all elements member counts, except for the given `elem`, to zero.
+            /// Set all element counts, except for the given `elem`, to zero.
             ///
             /// # Examples
             ///
@@ -803,8 +803,8 @@ macro_rules! multiset_simd_array {
             /// use utote::MSu32x2;
             /// use typenum::U2;
             /// let mut multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
-            /// multiset.choose(3);
-            /// let result = MSu32x2::<U2>::from_slice(&[0, 0, 0, 3]);
+            /// multiset.choose(2);
+            /// let result = MSu32x2::<U2>::from_slice(&[0, 0, 5, 0]);
             /// assert_eq!(multiset, result);
             /// ```
             #[inline]
@@ -823,7 +823,7 @@ macro_rules! multiset_simd_array {
                 }
             }
 
-            /// Set all elements member counts, except for a random choice, to zero. The choice is
+            /// Set all element counts, except for a random choice, to zero. The choice is
             /// weighted by the counts of the elements.
             ///
             /// # Examples

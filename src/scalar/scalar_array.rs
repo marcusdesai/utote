@@ -195,7 +195,7 @@ macro_rules! multiset_scalar_array {
             /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
             /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
-            /// // assert_eq!(unsafe { multiset.contains_unchecked(5) }, false);  NOT SAFE!!!
+            /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
             /// ```
             ///
             /// # Safety
@@ -707,7 +707,7 @@ macro_rules! multiset_scalar_array {
                 *the_min
             }
 
-            /// Set all elements member counts, except for the given `elem`, to zero.
+            /// Set all element counts, except for the given `elem`, to zero.
             ///
             /// # Examples
             ///
@@ -715,8 +715,8 @@ macro_rules! multiset_scalar_array {
             /// use utote::MSu8;
             /// use typenum::U4;
             /// let mut multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
-            /// multiset.choose(3);
-            /// let result = MSu8::<U4>::from_slice(&[0, 0, 0, 3]);
+            /// multiset.choose(2);
+            /// let result = MSu8::<U4>::from_slice(&[0, 0, 5, 0]);
             /// assert_eq!(multiset, result);
             /// ```
             #[inline]
@@ -728,7 +728,7 @@ macro_rules! multiset_scalar_array {
                 }
             }
 
-            /// Set all elements member counts, except for a random choice, to zero. The choice is
+            /// Set all element counts, except for a random choice, to zero. The choice is
             /// weighted by the counts of the elements.
             ///
             /// # Examples
