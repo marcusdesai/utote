@@ -5,7 +5,8 @@
 
 Stack allocated uint multiset implementation, with optional SIMD implementations available.
 
-> :warning: This crate is **not** stable: expect API changes with each release.
+> :warning: This crate is **not** stable: expect API changes with each release. 0.1.10 will be the final unstable 
+> release.
 
 The SIMD implementation uses [packed_simd](https://rust-lang.github.io/packed_simd/packed_simd_2) (behind a feature 
 flag). `packed_simd` was chosen over alternatives due to it's simplicity and based on the assumption that when 
