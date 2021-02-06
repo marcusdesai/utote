@@ -11,7 +11,7 @@ Any multiset where all counters are zero is equivalent to the empty multiset.
 
 ## Examples
 
-```no_run
+```
 use utote::MSu8;
 use typenum::U4;
 
@@ -38,7 +38,7 @@ you can explicitly direct the compiler to use SIMD vectors, if they are availabl
 
 ## Examples
 
-```no_run
+```
 use utote::MSu8x2;
 use typenum::U2;
 
@@ -53,12 +53,12 @@ which use a SIMD vector directly for the multiset data. Inline with the above re
 use, the purpose of these types is so that, in the case where an array of SIMD values is not
 needed, the user can ensure that no code used in managing the arrays is used in the program.
 
-```no_run
+```
 use utote::{MSu16x4, MS0u16x4};
 use typenum::U0;
 
 // This type alias is equivalent to MS0u16x4
-type Direct = MSu16x4<U0>;
+type MSDirectSimd = MSu16x4<U0>;
 
 let multiset = MS0u16x4::from_slice(&[1, 3, 5, 7]);
 

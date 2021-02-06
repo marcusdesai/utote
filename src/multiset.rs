@@ -1,6 +1,6 @@
 use generic_array::{ArrayLength, GenericArray};
 use std::mem;
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use typenum::{UInt, Unsigned, U0};
 
 /// Trait enabling the sleight of hand using different typenum structs to define different storage
@@ -45,12 +45,34 @@ pub struct MultisetIterator<N, U: MultisetStorage<N>> {
     pub(crate) index: usize
 }
 
+impl<N> Add for Multiset<N, U0>
+    where
+        N: Add,
+{
+    type Output = Multiset<<N as Add>::Output, U0>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Multiset { data: self.data + rhs.data }
+    }
+}
+
 impl<N> AddAssign for Multiset<N, U0>
     where
         N: AddAssign,
 {
     fn add_assign(&mut self, rhs: Self) {
         self.data += rhs.data
+    }
+}
+
+impl<N> Sub for Multiset<N, U0>
+    where
+        N: Sub,
+{
+    type Output = Multiset<<N as Sub>::Output, U0>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Multiset { data: self.data - rhs.data }
     }
 }
 
@@ -63,6 +85,17 @@ impl<N> SubAssign for Multiset<N, U0>
     }
 }
 
+impl<N> Mul for Multiset<N, U0>
+    where
+        N: Mul,
+{
+    type Output = Multiset<<N as Mul>::Output, U0>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Multiset { data: self.data * rhs.data }
+    }
+}
+
 impl<N> MulAssign for Multiset<N, U0>
     where
         N: MulAssign,
@@ -72,12 +105,44 @@ impl<N> MulAssign for Multiset<N, U0>
     }
 }
 
+impl<N> Div for Multiset<N, U0>
+    where
+        N: Div,
+{
+    type Output = Multiset<<N as Div>::Output, U0>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Multiset { data: self.data / rhs.data }
+    }
+}
+
 impl<N> DivAssign for Multiset<N, U0>
     where
         N: DivAssign,
 {
     fn div_assign(&mut self, rhs: Self) {
         self.data /= rhs.data
+    }
+}
+
+impl<N, U, B> Add for Multiset<N, UInt<U, B>>
+    where
+        N: Add + Copy,
+        <N as Add>::Output: Copy,
+        UInt<U, B>: ArrayLength<N> + ArrayLength<<N as Add>::Output>,
+{
+    type Output = Multiset<<N as Add>::Output, UInt<U, B>>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut res = unsafe { Multiset::new_uninitialized() };
+        for i in 0..UInt::<U, B>::USIZE {
+            unsafe {
+                let e1 = self.data.get_unchecked(i);
+                let e2 = rhs.data.get_unchecked(i);
+                *res.data.get_unchecked_mut(i) = *e1 + *e2;
+            }
+        }
+        res
     }
 }
 
@@ -96,6 +161,27 @@ impl<N, U, B> AddAssign for Multiset<N, UInt<U, B>>
     }
 }
 
+impl<N, U, B> Sub for Multiset<N, UInt<U, B>>
+    where
+        N: Sub + Copy,
+        <N as Sub>::Output: Copy,
+        UInt<U, B>: ArrayLength<N> + ArrayLength<<N as Sub>::Output>,
+{
+    type Output = Multiset<<N as Sub>::Output, UInt<U, B>>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut res = unsafe { Multiset::new_uninitialized() };
+        for i in 0..UInt::<U, B>::USIZE {
+            unsafe {
+                let e1 = self.data.get_unchecked(i);
+                let e2 = rhs.data.get_unchecked(i);
+                *res.data.get_unchecked_mut(i) = *e1 - *e2;
+            }
+        }
+        res
+    }
+}
+
 impl<N, U, B> SubAssign for Multiset<N, UInt<U, B>>
     where
         N: SubAssign + Copy,
@@ -111,6 +197,27 @@ impl<N, U, B> SubAssign for Multiset<N, UInt<U, B>>
     }
 }
 
+impl<N, U, B> Mul for Multiset<N, UInt<U, B>>
+    where
+        N: Mul + Copy,
+        <N as Mul>::Output: Copy,
+        UInt<U, B>: ArrayLength<N> + ArrayLength<<N as Mul>::Output>,
+{
+    type Output = Multiset<<N as Mul>::Output, UInt<U, B>>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut res = unsafe { Multiset::new_uninitialized() };
+        for i in 0..UInt::<U, B>::USIZE {
+            unsafe {
+                let e1 = self.data.get_unchecked(i);
+                let e2 = rhs.data.get_unchecked(i);
+                *res.data.get_unchecked_mut(i) = *e1 * *e2;
+            }
+        }
+        res
+    }
+}
+
 impl<N, U, B> MulAssign for Multiset<N, UInt<U, B>>
     where
         N: MulAssign + Copy,
@@ -123,6 +230,27 @@ impl<N, U, B> MulAssign for Multiset<N, UInt<U, B>>
                 *self.data.get_unchecked_mut(i) *= *e;
             }
         }
+    }
+}
+
+impl<N, U, B> Div for Multiset<N, UInt<U, B>>
+    where
+        N: Div + Copy,
+        <N as Div>::Output: Copy,
+        UInt<U, B>: ArrayLength<N> + ArrayLength<<N as Div>::Output>,
+{
+    type Output = Multiset<<N as Div>::Output, UInt<U, B>>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let mut res = unsafe { Multiset::new_uninitialized() };
+        for i in 0..UInt::<U, B>::USIZE {
+            unsafe {
+                let e1 = self.data.get_unchecked(i);
+                let e2 = rhs.data.get_unchecked(i);
+                *res.data.get_unchecked_mut(i) = *e1 / *e2;
+            }
+        }
+        res
     }
 }
 
