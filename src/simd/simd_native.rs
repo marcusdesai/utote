@@ -1,5 +1,6 @@
 use packed_simd::*;
 use paste::paste;
+#[cfg(feature = "rand")]
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
@@ -725,7 +726,7 @@ macro_rules! multiset_simd {
             /// ```no_run
             /// use utote::MS0u16x4;
             /// use rand::prelude::*;
-            /// let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
+            /// let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
             /// let mut multiset = MS0u16x4::from_slice(&[2, 0, 5, 3]);
             /// multiset.choose_random(rng);
             /// assert_eq!(multiset.is_singleton(), true);
@@ -733,9 +734,10 @@ macro_rules! multiset_simd {
             ///
             /// ### Notes:
             /// - The implementation extracts values from the underlying SIMD vector.
+            #[cfg(feature = "rand")]
             #[inline]
-            pub fn choose_random(&mut self, rng: &mut StdRng) {
-                let choice_value = rng.gen_range(<$scalar>::ZERO, self.total() + <$scalar>::ONE);
+            pub fn choose_random(&mut self, rng: &mut SmallRng) {
+                let choice_value = rng.gen_range(<$scalar>::ZERO..=self.total());
                 let mut elem: usize = 0;
                 let mut acc: $scalar = <$scalar>::ZERO;
                 for i in 0..Self::len() {

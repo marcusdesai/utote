@@ -51,3 +51,9 @@ additional terms or conditions.
 
 The implementations in this crate are inspired by [generic-array](https://docs.rs/generic-array/0.14.4/generic_array/index.html), 
 [nalgebra](https://docs.rs/nalgebra) and [simba](https://docs.rs/simba).
+
+# Changelog
+
+## 0.3.0
+- Made `rand` dependency optional
+- Switched from `StdRng` to `SmallRng`

@@ -22,7 +22,13 @@ assert_eq!(multiset.total(), 16);
 assert_eq!(multiset.get(1), Some(3));
 ```
 
-# SIMD Features
+# Cargo Features
+
+- __packed_simd__: Requires nightly rust toolchain. Enables SIMD implementations using the
+`packed_simd` crate.
+- __rand__: Enables `choose_random` methods for multiset structs using the `rand` crate.
+
+# Using SIMD
 
 Optionally the [__packed_simd__ crate](https://rust-lang.github.io/packed_simd/packed_simd_2/index.html)
 can be enabled (requires nightly) to allow for multisets which are built either from an array of

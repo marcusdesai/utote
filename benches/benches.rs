@@ -1,19 +1,19 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use packed_simd::*;
 use rand::prelude::*;
-use utote::multiset::Multiset;
+use utote::Multiset;
 
 type MS4u32 = Multiset<u32, typenum::U4>;
 type MS0u32x4 = Multiset<u32x4, typenum::U0>;
 type MS2u32x2 = Multiset<u32x2, typenum::U2>;
 type MS1u32x4 = Multiset<u32x4, typenum::U1>;
 
-fn _random_array(rng: &mut StdRng) -> [u32; 4] {
+fn _random_array(rng: &mut SmallRng) -> [u32; 4] {
     [rng.gen(), rng.gen(), rng.gen(), rng.gen()]
 }
 
 fn from_slice(c: &mut Criterion) {
-    let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
+    let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
 
     c.bench_function("from_slice MS4u32", |b| {
         b.iter(|| black_box(MS4u32::from_slice(&_random_array(rng))))
@@ -33,7 +33,7 @@ fn from_slice(c: &mut Criterion) {
 }
 
 fn intersection(c: &mut Criterion) {
-    let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
+    let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
 
     c.bench_function("intersection MS4u32", |b| {
         b.iter(|| {
@@ -63,7 +63,7 @@ fn intersection(c: &mut Criterion) {
 }
 
 fn union(c: &mut Criterion) {
-    let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
+    let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
 
     c.bench_function("union MS4u32", |b| {
         b.iter(|| {
@@ -95,7 +95,7 @@ fn union(c: &mut Criterion) {
 fn collision_entropy(c: &mut Criterion) {
     let mut result: f64 = 0.0;
     let mut sign: f64 = 1.0;
-    let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
+    let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
 
     c.bench_function("collision_entropy MS4u32", |b| {
         b.iter(|| {
@@ -135,7 +135,7 @@ fn collision_entropy(c: &mut Criterion) {
 fn shannon_entropy(c: &mut Criterion) {
     let mut result: f64 = 0.0;
     let mut sign: f64 = 1.0;
-    let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
+    let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
 
     c.bench_function("shannon_entropy MS4u32", |b| {
         b.iter(|| {
