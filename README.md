@@ -54,6 +54,9 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+### 0.3.1
+- Make rng generic in `choose_random`
+
 ## 0.3.0
 - Made `rand` dependency optional
 - Switched from `StdRng` to `SmallRng`
