@@ -843,7 +843,7 @@ macro_rules! multiset_simd_array {
             /// - The implementation extracts values from the underlying SIMD vectors.
             #[cfg(feature = "rand")]
             #[inline]
-            pub fn choose_random(&mut self, rng: &mut SmallRng) {
+            pub fn choose_random<T: RngCore>(&mut self, rng: &mut T) {
                 let choice_value = rng.gen_range(<$scalar>::ZERO..=self.total());
                 let mut vector_index: usize = 0;
                 let mut acc: $scalar = <$scalar>::ZERO;
