@@ -2,6 +2,8 @@ use generic_array::{ArrayLength, GenericArray};
 use std::mem;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use typenum::{UInt, Unsigned, U0};
+use std::fmt::{Debug, Formatter, Result};
+use std::hash::{Hash, Hasher};
 
 /// Trait enabling the sleight of hand using different typenum structs to define different storage
 /// types.
@@ -21,10 +23,64 @@ impl<N, U, B> MultisetStorage<N> for UInt<U, B>
 }
 
 /// Multiset! yay
-#[derive(Debug, Copy, Clone, Hash)]
 pub struct Multiset<N, U: MultisetStorage<N>> {
     pub(crate) data: U::Storage,
 }
+
+impl<N: Hash> Hash for Multiset<N, U0>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.data.hash(state);
+    }
+}
+
+impl<N: Hash, U, B> Hash for Multiset<N, UInt<U, B>>
+    where
+        UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.data.hash(state)
+    }
+}
+
+impl<N: Debug> Debug for Multiset<N, U0>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.debug_struct("Multiset").field("data", &self.data).finish()
+    }
+}
+
+impl<N: Debug, U, B> Debug for Multiset<N, UInt<U, B>>
+    where
+        UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f.debug_struct("Multiset").field("data", &self.data).finish()
+    }
+}
+
+impl<N: Clone> Clone for Multiset<N, U0>
+{
+    fn clone(&self) -> Self {
+        Multiset { data: self.data.clone() }
+    }
+}
+
+impl<N: Clone, U, B> Clone for Multiset<N, UInt<U, B>>
+    where
+        UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>,
+{
+    fn clone(&self) -> Self {
+        Multiset { data: self.data.clone() }
+    }
+}
+
+impl<N: Copy> Copy for Multiset<N, U0> {}
+
+impl<N: Copy, U, B> Copy for Multiset<N, UInt<U, B>>
+    where
+        GenericArray<N, UInt<U, B>>: Copy,
+        UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>, {}
 
 impl<N, U: MultisetStorage<N>> PartialEq for Multiset<N, U>
     where
@@ -36,13 +92,11 @@ impl<N, U: MultisetStorage<N>> PartialEq for Multiset<N, U>
 }
 
 impl<N, U: MultisetStorage<N>> Eq for Multiset<N, U>
-    where
-        Multiset<N, U>: PartialEq,
-{}
+    where Multiset<N, U>: PartialEq, {}
 
 pub struct MultisetIterator<N, U: MultisetStorage<N>> {
     pub(crate) multiset: Multiset<N, U>,
-    pub(crate) index: usize
+    pub(crate) index: usize,
 }
 
 impl<N> Add for Multiset<N, U0>

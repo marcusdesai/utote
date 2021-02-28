@@ -1,6 +1,5 @@
 use generic_array::ArrayLength;
 use packed_simd::*;
-use paste::paste;
 #[cfg(feature = "rand")]
 use rand::prelude::*;
 use std::cmp::Ordering;
@@ -967,10 +966,27 @@ multiset_simd_array_stats!(MSu32x2<UInt<U, B>>, u32x2, u32, f64x2);
 multiset_simd_array_stats!(MSu32x4<UInt<U, B>>, u32x4, u32, f64x4);
 multiset_simd_array_stats!(MSu32x8<UInt<U, B>>, u32x8, u32, f64x8);
 
-multiset_type!(
-    u8x2, u8x4, u8x8, u8x16, u8x32, u8x64, u16x2, u16x4, u16x8, u16x16, u16x32, u32x2, u32x4,
-    u32x8, u32x16, u64x2, u64x4, u64x8
-);
+pub type MSu8x2<U> = Multiset<u8x2, U>;
+pub type MSu8x4<U> = Multiset<u8x4, U>;
+pub type MSu8x8<U> = Multiset<u8x8, U>;
+pub type MSu8x16<U> = Multiset<u8x16, U>;
+pub type MSu8x32<U> = Multiset<u8x32, U>;
+pub type MSu8x64<U> = Multiset<u8x64, U>;
+
+pub type MSu16x2<U> = Multiset<u16x2, U>;
+pub type MSu16x4<U> = Multiset<u16x4, U>;
+pub type MSu16x8<U> = Multiset<u16x8, U>;
+pub type MSu16x16<U> = Multiset<u16x16, U>;
+pub type MSu16x32<U> = Multiset<u16x32, U>;
+
+pub type MSu32x2<U> = Multiset<u32x2, U>;
+pub type MSu32x4<U> = Multiset<u32x4, U>;
+pub type MSu32x8<U> = Multiset<u32x8, U>;
+pub type MSu32x16<U> = Multiset<u32x16, U>;
+
+pub type MSu64x2<U> = Multiset<u64x2, U>;
+pub type MSu64x4<U> = Multiset<u64x4, U>;
+pub type MSu64x8<U> = Multiset<u64x8, U>;
 
 #[cfg(test)]
 mod tests {

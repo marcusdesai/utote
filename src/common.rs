@@ -31,11 +31,3 @@ macro_rules! partial_ord_body {
         }
     };
 }
-
-// Defines multiset aliases of the form: "MSu32x4<U>" where U is some type level uint from the
-// typenum crate.
-macro_rules! multiset_type {
-    ($($elem_typ:ty),*) => {
-        paste! { $(pub type [<MS $elem_typ>]<U> = Multiset<$elem_typ, U>; )* }
-    }
-}

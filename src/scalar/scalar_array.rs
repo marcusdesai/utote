@@ -1,5 +1,4 @@
 use generic_array::ArrayLength;
-use paste::paste;
 #[cfg(feature = "rand")]
 use rand::prelude::*;
 use std::cmp::Ordering;
@@ -826,7 +825,10 @@ macro_rules! multiset_scalar_array_stats {
 
 multiset_scalar_array_stats!(MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32);
 
-multiset_type!(u8, u16, u32, u64);
+pub type MSu8<U> = Multiset<u8, U>;
+pub type MSu16<U> = Multiset<u16, U>;
+pub type MSu32<U> = Multiset<u32, U>;
+pub type MSu64<U> = Multiset<u64, U>;
 
 #[cfg(test)]
 mod tests {

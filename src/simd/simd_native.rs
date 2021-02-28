@@ -1,5 +1,4 @@
 use packed_simd::*;
-use paste::paste;
 #[cfg(feature = "rand")]
 use rand::prelude::*;
 use std::cmp::Ordering;
@@ -63,26 +62,6 @@ macro_rules! multiset_simd {
         }
 
         impl $alias {
-
-            // todo? Should we use the below example code to parameterize all the doc tests by the
-            //  macro parameters? It's pretty ugly and certainly makes working with the doc-strings
-            //  harder. But it would also enable the docs to contain example code specific to the
-            //  type alias implementation, and we could get rid of the non-doc tests potentially.
-            // paste! {
-            //     #[doc="Returns a Multiset of the given SIMD vector size with all elements set to \
-            //         zero.\n\
-            //         # Examples\n\
-            //         ```no_run\n\
-            //         use utote::" $alias ";\n\
-            //         let multiset = " $alias "::empty();\n\
-            //         ```"]
-            //     #[inline]
-            //     pub const fn empty() -> Self {
-            //         Multiset {
-            //             data: <$simd>::ZERO,
-            //         }
-            //     }
-            // }
 
             /// Returns a Multiset of the given SIMD vector size with all elements set to zero.
             ///
@@ -834,18 +813,27 @@ multiset_simd_stats!(MS0u32x2, u32x2, u32, f64x2);
 multiset_simd_stats!(MS0u32x4, u32x4, u32, f64x4);
 multiset_simd_stats!(MS0u32x8, u32x8, u32, f64x8);
 
-// Defines multiset aliases of the form: "MS0u32x4", with the type typenum::U0 built in. Each alias
-// of this type uses the simd vector directly to store values in the multiset.
-macro_rules! ms0_type {
-    ($($elem_typ:ty),*) => {
-        paste! { $(pub type [<MS0 $elem_typ>] = Multiset<$elem_typ, typenum::U0>; )* }
-    }
-}
+pub type MS0u8x2 = Multiset<u8x2, typenum::UTerm>;
+pub type MS0u8x4 = Multiset<u8x4, typenum::UTerm>;
+pub type MS0u8x8 = Multiset<u8x8, typenum::UTerm>;
+pub type MS0u8x16 = Multiset<u8x16, typenum::UTerm>;
+pub type MS0u8x32 = Multiset<u8x32, typenum::UTerm>;
+pub type MS0u8x64 = Multiset<u8x64, typenum::UTerm>;
 
-ms0_type!(
-    u8x2, u8x4, u8x8, u8x16, u8x32, u8x64, u16x2, u16x4, u16x8, u16x16, u16x32, u32x2, u32x4,
-    u32x8, u32x16, u64x2, u64x4, u64x8
-);
+pub type MS0u16x2 = Multiset<u16x2, typenum::UTerm>;
+pub type MS0u16x4 = Multiset<u16x4, typenum::UTerm>;
+pub type MS0u16x8 = Multiset<u16x8, typenum::UTerm>;
+pub type MS0u16x16 = Multiset<u16x16, typenum::UTerm>;
+pub type MS0u16x32 = Multiset<u16x32, typenum::UTerm>;
+
+pub type MS0u32x2 = Multiset<u32x2, typenum::UTerm>;
+pub type MS0u32x4 = Multiset<u32x4, typenum::UTerm>;
+pub type MS0u32x8 = Multiset<u32x8, typenum::UTerm>;
+pub type MS0u32x16 = Multiset<u32x16, typenum::UTerm>;
+
+pub type MS0u64x2 = Multiset<u64x2, typenum::UTerm>;
+pub type MS0u64x4 = Multiset<u64x4, typenum::UTerm>;
+pub type MS0u64x8 = Multiset<u64x8, typenum::UTerm>;
 
 #[cfg(test)]
 mod tests {

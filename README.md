@@ -54,6 +54,10 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+### 0.3.2
+- Move to manual implementations of common traits on Multiset
+- Manually define type aliases
+
 ### 0.3.1
 - Make rng generic in `choose_random`
 

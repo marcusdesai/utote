@@ -1,6 +1,6 @@
 [package]
 name = "utote"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Marcus Desai <marcus.desai@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,6 @@ documentation = "https://docs.rs/utote"
 [dependencies]
 generic-array = "0.14.4"
 packed_simd = { version = "0.3.4", package = "packed_simd_2", optional = true }
-paste = "1.0.4"
 rand = { version = "0.8.3", features = ["small_rng"], optional = true }
 typenum = "1.12.0"
 
