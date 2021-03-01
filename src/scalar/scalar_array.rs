@@ -3,14 +3,15 @@ use generic_array::ArrayLength;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
-use typenum::{UInt, Unsigned};
+use typenum::bit::Bit;
+use typenum::uint::{UInt, Unsigned};
 
 use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_scalar_array {
     ($($alias:ty, $scalar:ty),*) => {
-        $(impl<U, B> FromIterator<$scalar> for $alias
+        $(impl<U: Unsigned, B: Bit> FromIterator<$scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
@@ -30,7 +31,7 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<'a, U, B> FromIterator<&'a $scalar> for $alias
+        impl<'a, U: Unsigned, B: Bit> FromIterator<&'a $scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
@@ -50,14 +51,14 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U, B> PartialOrd for $alias
+        impl<U: Unsigned, B: Bit> PartialOrd for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
             partial_ord_body!();
         }
 
-        impl<U, B> IntoIterator for $alias
+        impl<U: Unsigned, B: Bit> IntoIterator for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
@@ -72,7 +73,7 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U, B> Iterator for MultisetIterator<$scalar, UInt::<U, B>>
+        impl<U: Unsigned, B: Bit> Iterator for MultisetIterator<$scalar, UInt::<U, B>>
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
@@ -89,7 +90,7 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U, B> ExactSizeIterator for MultisetIterator<$scalar, UInt::<U, B>>
+        impl<U: Unsigned, B: Bit> ExactSizeIterator for MultisetIterator<$scalar, UInt::<U, B>>
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
@@ -98,10 +99,11 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U, B> $alias
+        impl<U: Unsigned, B: Bit> $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
         {
+            pub const SIZE: usize = UInt::<U, B>::USIZE;
 
             /// Returns a Multiset of the given array size with all elements set to zero.
             ///
@@ -169,7 +171,7 @@ macro_rules! multiset_scalar_array {
             /// assert_eq!(MSu8::<U4>::len(), 4);
             /// ```
             #[inline]
-            pub const fn len() -> usize { UInt::<U, B>::USIZE }
+            pub fn len() -> usize { Self::SIZE }
 
             /// Sets all element counts in the multiset to zero.
             ///
@@ -792,7 +794,7 @@ multiset_scalar_array!(
 // Any alias where the scalar type can lossless cast to f64 can use this implementation.
 macro_rules! multiset_scalar_array_stats {
     ($($alias:ty, $scalar:ty),*) => {
-        $(impl<U, B> $alias
+        $(impl<U: Unsigned, B: Bit> $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
                 f64: From<$scalar>,

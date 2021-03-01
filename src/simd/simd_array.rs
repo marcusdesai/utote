@@ -4,14 +4,15 @@ use packed_simd::*;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
-use typenum::{UInt, Unsigned};
+use typenum::bit::Bit;
+use typenum::uint::{UInt, Unsigned};
 
 use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd_array {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_mask:ty) => {
-        impl<U, B> FromIterator<$scalar> for $alias
+        impl<U: Unsigned, B: Bit> FromIterator<$scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -34,7 +35,7 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<'a, U, B> FromIterator<&'a $scalar> for $alias
+        impl<'a, U: Unsigned, B: Bit> FromIterator<&'a $scalar> for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -57,14 +58,14 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U, B> PartialOrd for $alias
+        impl<U: Unsigned, B: Bit> PartialOrd for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
             partial_ord_body!();
         }
 
-        impl<U, B> IntoIterator for $alias
+        impl<U: Unsigned, B: Bit> IntoIterator for $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -79,7 +80,7 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U, B> Iterator for MultisetIterator<$simd, UInt::<U, B>>
+        impl<U: Unsigned, B: Bit> Iterator for MultisetIterator<$simd, UInt::<U, B>>
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -102,7 +103,7 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U, B> ExactSizeIterator for MultisetIterator<$simd, UInt::<U, B>>
+        impl<U: Unsigned, B: Bit> ExactSizeIterator for MultisetIterator<$simd, UInt::<U, B>>
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
@@ -111,10 +112,12 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U, B> $alias
+        impl<U: Unsigned, B: Bit> $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
         {
+            pub const SIZE: usize = <$simd>::lanes() * UInt::<U, B>::USIZE;
+
             /// Returns a Multiset of the given array * SIMD vector size with all elements set to
             /// zero.
             ///
@@ -174,8 +177,8 @@ macro_rules! multiset_simd_array {
             /// assert_eq!(MSu32x2::<U2>::len(), 4);
             /// ```
             #[inline]
-            pub const fn len() -> usize {
-                <$simd>::lanes() * UInt::<U, B>::USIZE
+            pub fn len() -> usize {
+                Self::SIZE
             }
 
             /// Sets all element counts in the multiset to zero.
@@ -911,14 +914,14 @@ multiset_simd_array!(MSu32x2<UInt<U, B>>, u32x2, u32, m32x2);
 multiset_simd_array!(MSu32x4<UInt<U, B>>, u32x4, u32, m32x4);
 multiset_simd_array!(MSu32x8<UInt<U, B>>, u32x8, u32, m32x8);
 multiset_simd_array!(MSu32x16<UInt<U, B>>, u32x16, u32, m32x16);
-multiset_simd_array!(MSu64x2<UInt<U, B>>, u64x2, u64, m8x2);
-multiset_simd_array!(MSu64x4<UInt<U, B>>, u64x4, u64, m8x4);
-multiset_simd_array!(MSu64x8<UInt<U, B>>, u64x8, u64, m8x8);
+multiset_simd_array!(MSu64x2<UInt<U, B>>, u64x2, u64, m64x2);
+multiset_simd_array!(MSu64x4<UInt<U, B>>, u64x4, u64, m64x4);
+multiset_simd_array!(MSu64x8<UInt<U, B>>, u64x8, u64, m64x8);
 
 // Any alias where the simd type has an f64 equivalent lane-wise, can use this implementation.
 macro_rules! multiset_simd_array_stats {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_float:ty) => {
-        impl<U, B> $alias
+        impl<U: Unsigned, B: Bit> $alias
             where
                 UInt<U, B>: ArrayLength<$simd>,
                 f64: From<$scalar>,

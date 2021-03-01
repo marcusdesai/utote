@@ -54,6 +54,10 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+### 0.3.4
+- impl Send & Sync for Multiset
+- re-export typenum
+
 ### 0.3.3
 - impl FromIterator of refs for Multisets
 - re-export simd types and generic-array traits

@@ -93,5 +93,24 @@ pub use simd::*;
 
 // Re-Exports
 pub use generic_array;
+pub use typenum;
 #[cfg(feature = "packed_simd")]
 pub use packed_simd;
+
+// // test generic usage - currently failing without use of un-ergonomic constraints
+// #[cfg(test)]
+// mod generic_tests {
+//     use super::*;
+//     use typenum::{Unsigned, Bit, UInt};
+//     use packed_simd::u8x2;
+//     use generic_array::ArrayLength;
+//
+//     fn blah<U: Unsigned + MultisetStorage<u8x2>>(x: MSu8x2<U>) {
+//         x.intersection(&x);
+//     }
+//
+//     #[test]
+//     fn test_blah() {
+//         blah(MSu8x2::<typenum::U4>::repeat(2))
+//     }
+// }

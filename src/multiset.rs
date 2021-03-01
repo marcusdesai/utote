@@ -1,21 +1,22 @@
 use generic_array::{ArrayLength, GenericArray};
 use std::mem;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use typenum::{UInt, Unsigned, U0};
+use typenum::bit::Bit;
+use typenum::uint::{UInt, Unsigned, UTerm};
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::{Hash, Hasher};
 
 /// Trait enabling the sleight of hand using different typenum structs to define different storage
 /// types.
-pub trait MultisetStorage<T> {
+pub trait MultisetStorage<T>: Unsigned {
     type Storage;
 }
 
-impl<N> MultisetStorage<N> for U0 {
+impl<N> MultisetStorage<N> for UTerm {
     type Storage = N;
 }
 
-impl<N, U, B> MultisetStorage<N> for UInt<U, B>
+impl<N, U: Unsigned, B: Bit> MultisetStorage<N> for UInt<U, B>
     where
         UInt<U, B>: ArrayLength<N>,
 {
@@ -27,14 +28,18 @@ pub struct Multiset<N, U: MultisetStorage<N>> {
     pub(crate) data: U::Storage,
 }
 
-impl<N: Hash> Hash for Multiset<N, U0>
+// Safe because Multiset.data is private to Multiset
+unsafe impl<N: Send, U: MultisetStorage<N>> Send for Multiset<N, U> {}
+unsafe impl<N: Sync, U: MultisetStorage<N>> Sync for Multiset<N, U> {}
+
+impl<N: Hash> Hash for Multiset<N, UTerm>
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.hash(state);
     }
 }
 
-impl<N: Hash, U, B> Hash for Multiset<N, UInt<U, B>>
+impl<N: Hash, U: Unsigned, B: Bit> Hash for Multiset<N, UInt<U, B>>
     where
         UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>,
 {
@@ -43,14 +48,14 @@ impl<N: Hash, U, B> Hash for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N: Debug> Debug for Multiset<N, U0>
+impl<N: Debug> Debug for Multiset<N, UTerm>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f.debug_struct("Multiset").field("data", &self.data).finish()
     }
 }
 
-impl<N: Debug, U, B> Debug for Multiset<N, UInt<U, B>>
+impl<N: Debug, U: Unsigned, B: Bit> Debug for Multiset<N, UInt<U, B>>
     where
         UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>,
 {
@@ -59,14 +64,14 @@ impl<N: Debug, U, B> Debug for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N: Clone> Clone for Multiset<N, U0>
+impl<N: Clone> Clone for Multiset<N, UTerm>
 {
     fn clone(&self) -> Self {
         Multiset { data: self.data.clone() }
     }
 }
 
-impl<N: Clone, U, B> Clone for Multiset<N, UInt<U, B>>
+impl<N: Clone, U: Unsigned, B: Bit> Clone for Multiset<N, UInt<U, B>>
     where
         UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>,
 {
@@ -75,9 +80,9 @@ impl<N: Clone, U, B> Clone for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N: Copy> Copy for Multiset<N, U0> {}
+impl<N: Copy> Copy for Multiset<N, UTerm> {}
 
-impl<N: Copy, U, B> Copy for Multiset<N, UInt<U, B>>
+impl<N: Copy, U: Unsigned, B: Bit> Copy for Multiset<N, UInt<U, B>>
     where
         GenericArray<N, UInt<U, B>>: Copy,
         UInt<U, B>: MultisetStorage<N, Storage=GenericArray<N, UInt<U, B>>> + ArrayLength<N>, {}
@@ -99,18 +104,18 @@ pub struct MultisetIterator<N, U: MultisetStorage<N>> {
     pub(crate) index: usize,
 }
 
-impl<N> Add for Multiset<N, U0>
+impl<N> Add for Multiset<N, UTerm>
     where
         N: Add,
 {
-    type Output = Multiset<<N as Add>::Output, U0>;
+    type Output = Multiset<<N as Add>::Output, UTerm>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Multiset { data: self.data + rhs.data }
     }
 }
 
-impl<N> AddAssign for Multiset<N, U0>
+impl<N> AddAssign for Multiset<N, UTerm>
     where
         N: AddAssign,
 {
@@ -119,18 +124,18 @@ impl<N> AddAssign for Multiset<N, U0>
     }
 }
 
-impl<N> Sub for Multiset<N, U0>
+impl<N> Sub for Multiset<N, UTerm>
     where
         N: Sub,
 {
-    type Output = Multiset<<N as Sub>::Output, U0>;
+    type Output = Multiset<<N as Sub>::Output, UTerm>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Multiset { data: self.data - rhs.data }
     }
 }
 
-impl<N> SubAssign for Multiset<N, U0>
+impl<N> SubAssign for Multiset<N, UTerm>
     where
         N: SubAssign,
 {
@@ -139,18 +144,18 @@ impl<N> SubAssign for Multiset<N, U0>
     }
 }
 
-impl<N> Mul for Multiset<N, U0>
+impl<N> Mul for Multiset<N, UTerm>
     where
         N: Mul,
 {
-    type Output = Multiset<<N as Mul>::Output, U0>;
+    type Output = Multiset<<N as Mul>::Output, UTerm>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Multiset { data: self.data * rhs.data }
     }
 }
 
-impl<N> MulAssign for Multiset<N, U0>
+impl<N> MulAssign for Multiset<N, UTerm>
     where
         N: MulAssign,
 {
@@ -159,18 +164,18 @@ impl<N> MulAssign for Multiset<N, U0>
     }
 }
 
-impl<N> Div for Multiset<N, U0>
+impl<N> Div for Multiset<N, UTerm>
     where
         N: Div,
 {
-    type Output = Multiset<<N as Div>::Output, U0>;
+    type Output = Multiset<<N as Div>::Output, UTerm>;
 
     fn div(self, rhs: Self) -> Self::Output {
         Multiset { data: self.data / rhs.data }
     }
 }
 
-impl<N> DivAssign for Multiset<N, U0>
+impl<N> DivAssign for Multiset<N, UTerm>
     where
         N: DivAssign,
 {
@@ -179,7 +184,7 @@ impl<N> DivAssign for Multiset<N, U0>
     }
 }
 
-impl<N, U, B> Add for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> Add for Multiset<N, UInt<U, B>>
     where
         N: Add + Copy,
         <N as Add>::Output: Copy,
@@ -200,7 +205,7 @@ impl<N, U, B> Add for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> AddAssign for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> AddAssign for Multiset<N, UInt<U, B>>
     where
         N: AddAssign + Copy,
         UInt<U, B>: ArrayLength<N>,
@@ -215,7 +220,7 @@ impl<N, U, B> AddAssign for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> Sub for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> Sub for Multiset<N, UInt<U, B>>
     where
         N: Sub + Copy,
         <N as Sub>::Output: Copy,
@@ -236,7 +241,7 @@ impl<N, U, B> Sub for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> SubAssign for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> SubAssign for Multiset<N, UInt<U, B>>
     where
         N: SubAssign + Copy,
         UInt<U, B>: ArrayLength<N>,
@@ -251,7 +256,7 @@ impl<N, U, B> SubAssign for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> Mul for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> Mul for Multiset<N, UInt<U, B>>
     where
         N: Mul + Copy,
         <N as Mul>::Output: Copy,
@@ -272,7 +277,7 @@ impl<N, U, B> Mul for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> MulAssign for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> MulAssign for Multiset<N, UInt<U, B>>
     where
         N: MulAssign + Copy,
         UInt<U, B>: ArrayLength<N>,
@@ -287,7 +292,7 @@ impl<N, U, B> MulAssign for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> Div for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> Div for Multiset<N, UInt<U, B>>
     where
         N: Div + Copy,
         <N as Div>::Output: Copy,
@@ -308,7 +313,7 @@ impl<N, U, B> Div for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N, U, B> DivAssign for Multiset<N, UInt<U, B>>
+impl<N, U: Unsigned, B: Bit> DivAssign for Multiset<N, UInt<U, B>>
     where
         N: DivAssign + Copy,
         UInt<U, B>: ArrayLength<N>,
@@ -323,7 +328,7 @@ impl<N, U, B> DivAssign for Multiset<N, UInt<U, B>>
     }
 }
 
-impl<N: Copy, U, B> Multiset<N, UInt<U, B>>
+impl<N: Copy, U: Unsigned, B: Bit> Multiset<N, UInt<U, B>>
     where
         UInt<U, B>: ArrayLength<N>,
 {
