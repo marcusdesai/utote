@@ -71,7 +71,6 @@ let multiset = MS0u16x4::from_slice(&[1, 3, 5, 7]);
 assert_eq!(multiset.total(), 16);
 assert_eq!(multiset.get(1), Some(3));
 ```
-
 */
 
 mod multiset;
@@ -91,3 +90,8 @@ pub use scalar::*;
 mod simd;
 #[cfg(feature = "packed_simd")]
 pub use simd::*;
+
+// Re-Exports
+pub use generic_array;
+#[cfg(feature = "packed_simd")]
+pub use packed_simd;

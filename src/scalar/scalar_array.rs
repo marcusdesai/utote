@@ -30,6 +30,26 @@ macro_rules! multiset_scalar_array {
             }
         }
 
+        impl<'a, U, B> FromIterator<&'a $scalar> for $alias
+            where
+                UInt<U, B>: ArrayLength<$scalar>,
+        {
+            #[inline]
+            fn from_iter<T: IntoIterator<Item=&'a $scalar>>(iter: T) -> Self {
+                let mut res = unsafe { Multiset::new_uninitialized() };
+                let mut it = iter.into_iter();
+
+                for i in 0..Self::len() {
+                    let elem = match it.next() {
+                        Some(v) => *v,
+                        None => <$scalar>::ZERO,
+                    };
+                    unsafe { *res.data.get_unchecked_mut(i) = elem }
+                }
+                res
+            }
+        }
+
         impl<U, B> PartialOrd for $alias
             where
                 UInt<U, B>: ArrayLength<$scalar>,
@@ -355,7 +375,7 @@ macro_rules! multiset_scalar_array {
             /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
             /// let b = MSu8::<U4>::from_slice(&[0, 2, 3, 0]);
             /// let c = MSu8::<U4>::from_slice(&[1, 2, 3, 0]);
-            /// assert_eq!(a.intersection(&b), c);
+            /// assert_eq!(a.union(&b), c);
             /// ```
             #[inline]
             pub fn union(&self, other: &Self) -> Self {

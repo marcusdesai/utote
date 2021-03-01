@@ -49,10 +49,14 @@ additional terms or conditions.
 
 ## Acknowledgements
 
-The implementations in this crate are inspired by [generic-array](https://docs.rs/generic-array/0.14.4/generic_array/index.html), 
+The implementations in this crate are inspired by [generic-array](https://docs.rs/generic-array/0.14.4/generic_array), 
 [nalgebra](https://docs.rs/nalgebra) and [simba](https://docs.rs/simba).
 
 # Changelog
+
+### 0.3.3
+- impl FromIterator of refs for Multisets
+- re-export simd types and generic-array traits
 
 ### 0.3.2
 - Move to manual implementations of common traits on Multiset

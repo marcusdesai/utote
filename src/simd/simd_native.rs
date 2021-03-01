@@ -25,6 +25,21 @@ macro_rules! multiset_simd {
             }
         }
 
+        impl<'a> FromIterator<&'a $scalar> for $alias {
+            #[inline]
+            fn from_iter<T: IntoIterator<Item = &'a $scalar>>(iter: T) -> Self {
+                let mut data = <$simd>::ZERO;
+                let mut it = iter.into_iter();
+
+                for i in 0..<$simd>::lanes() {
+                    if let Some(elem) = it.next() {
+                        data = unsafe { data.replace_unchecked(i, *elem) }
+                    }
+                }
+                Multiset { data }
+            }
+        }
+
         impl PartialOrd for $alias {
             partial_ord_body!();
         }
@@ -345,7 +360,7 @@ macro_rules! multiset_simd {
             /// let a = MS0u16x4::from_slice(&[1, 2, 0, 0]);
             /// let b = MS0u16x4::from_slice(&[0, 2, 3, 0]);
             /// let c = MS0u16x4::from_slice(&[1, 2, 3, 0]);
-            /// assert_eq!(a.intersection(&b), c);
+            /// assert_eq!(a.union(&b), c);
             /// ```
             #[inline]
             pub fn union(&self, other: &Self) -> Self {
