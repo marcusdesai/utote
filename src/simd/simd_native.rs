@@ -731,7 +731,11 @@ macro_rules! multiset_simd {
             #[cfg(feature = "rand")]
             #[inline]
             pub fn choose_random<T: RngCore>(&mut self, rng: &mut T) {
-                let choice_value = rng.gen_range(<$scalar>::ONE..=self.total());
+                let total = self.total();
+                if total == 0 {
+                    return
+                }
+                let choice_value = rng.gen_range(<$scalar>::ONE..=total);
                 let mut elem: usize = 0;
                 let mut acc: $scalar = <$scalar>::ZERO;
                 for i in 0..Self::len() {
