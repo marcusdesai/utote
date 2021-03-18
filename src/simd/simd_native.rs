@@ -8,6 +8,9 @@ use typenum::U0;
 use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
+// TODO: impl from_labels, which uses a counter to collect then from_iter to construct. If max
+//  label > ms len then panic.
+
 macro_rules! multiset_simd {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_mask:ty) => {
         impl FromIterator<$scalar> for $alias {

@@ -54,6 +54,9 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+### 0.3.5
+- fix choose_random implementations
+
 ### 0.3.4
 - impl Send & Sync for Multiset
 - re-export typenum
