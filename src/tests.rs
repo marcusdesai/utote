@@ -1,5 +1,5 @@
 macro_rules! tests_x4 {
-    ($tests_name:ident, $scalar:ty, $ms_store:ty) => {
+    ($tests_name:ident, $scalar:ty, $ms_store:expr) => {
         #[cfg(test)]
         mod $tests_name {
             use super::*;
@@ -39,7 +39,7 @@ macro_rules! tests_x4 {
 }
 
 macro_rules! tests_x8 {
-    ($tests_name:ident, $scalar:ty, $ms_store:ty) => {
+    ($tests_name:ident, $scalar:ty, $ms_store:expr) => {
         #[cfg(test)]
         mod $tests_name {
             use super::*;

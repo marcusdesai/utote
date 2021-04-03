@@ -27,10 +27,10 @@ Please see the [docs](https://docs.rs/utote) for the API and more information!
 
 - Build an implementation of Multiset, for scalar and SIMD types, which uses Vec.
 - Build a Multiset implementation for any `T` which uses the `uint` implementations as a backend to handle the element 
-counters.
-- Once `const generics` and `std::simd` are more fully implemented it should be possible to replace most of the macros 
-with generic implementations. And once these features are stabilised it will be possible to enable all the SIMD 
-implementations in `utote` in the stable toolchain. 
+  counters.
+- Once `std::simd` is more fully implemented it should be possible to replace most of the macros with generic 
+  implementations. And once this feature is stabilised it will be possible to enable all the SIMD implementations on 
+  the stable toolchain. 
 
 ## License
 
@@ -54,9 +54,9 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
-### 0.4.0
+### 0.4.0 (Breaking)
 - Deprecate direct SIMD implementation
-- todo: zip map improve
+- Utilise const generics (removing generic-array & typenum)
 
 ### 0.3.5
 - fix choose_random implementations

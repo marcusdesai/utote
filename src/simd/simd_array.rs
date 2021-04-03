@@ -1,10 +1,8 @@
-use generic_array::ArrayLength;
 use packed_simd::*;
 #[cfg(feature = "rand")]
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
-use typenum::Unsigned;
 
 use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
@@ -14,17 +12,13 @@ use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_simd_array {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_mask:ty) => {
-        impl<U: Unsigned> FromIterator<$scalar> for $alias
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> FromIterator<$scalar> for $alias {
             #[inline]
             fn from_iter<T: IntoIterator<Item = $scalar>>(iter: T) -> Self {
                 let mut res: Self = unsafe { Multiset::new_uninitialized() };
                 let mut it = iter.into_iter();
 
-                for i in 0..U::USIZE {
+                for i in 0..SIZE {
                     let mut elem_vec = <$simd>::ZERO;
                     for j in 0..<$simd>::lanes() {
                         if let Some(v) = it.next() {
@@ -38,17 +32,13 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<'a, U: Unsigned> FromIterator<&'a $scalar> for $alias
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
+        impl<'a, const SIZE: usize> FromIterator<&'a $scalar> for $alias {
             #[inline]
             fn from_iter<T: IntoIterator<Item = &'a $scalar>>(iter: T) -> Self {
                 let mut res: Self = unsafe { Multiset::new_uninitialized() };
                 let mut it = iter.into_iter();
 
-                for i in 0..U::USIZE {
+                for i in 0..SIZE {
                     let mut elem_vec = <$simd>::ZERO;
                     for j in 0..<$simd>::lanes() {
                         if let Some(v) = it.next() {
@@ -62,21 +52,13 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U: Unsigned> PartialOrd for $alias
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> PartialOrd for $alias {
             partial_ord_body!();
         }
 
-        impl<U: Unsigned> IntoIterator for $alias
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> IntoIterator for $alias {
             type Item = $scalar;
-            type IntoIter = MultisetIterator<$simd, U>;
+            type IntoIter = MultisetIterator<$simd, SIZE>;
 
             fn into_iter(self) -> Self::IntoIter {
                 MultisetIterator {
@@ -86,11 +68,7 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U: Unsigned> Iterator for MultisetIterator<$simd, U>
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> Iterator for MultisetIterator<$simd, SIZE> {
             type Item = $scalar;
 
             fn next(&mut self) -> Option<Self::Item> {
@@ -110,22 +88,14 @@ macro_rules! multiset_simd_array {
             }
         }
 
-        impl<U: Unsigned> ExactSizeIterator for MultisetIterator<$simd, U>
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> ExactSizeIterator for MultisetIterator<$simd, SIZE> {
             fn len(&self) -> usize {
                 <$alias>::len()
             }
         }
 
-        impl<U: Unsigned> $alias
-            where
-                U: ArrayLength<$simd>,
-                U::ArrayType: Copy,
-        {
-            pub const SIZE: usize = <$simd>::lanes() * U::USIZE;
+        impl<const SIZE: usize> $alias {
+            pub const SIZE: usize = <$simd>::lanes() * SIZE;
 
             /// Returns a Multiset of the given array * SIMD vector size with all elements set to
             /// zero.
@@ -134,8 +104,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::empty();
+            /// let multiset = MSu32x2::<2>::empty();
             /// ```
             #[inline]
             pub fn empty() -> Self {
@@ -149,13 +118,12 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::repeat(5);
+            /// let multiset = MSu32x2::<2>::repeat(5);
             /// ```
             #[inline]
             pub fn repeat(elem: $scalar) -> Self {
                 let mut res: Self = unsafe { Multiset::new_uninitialized() };
-                for i in 0..U::USIZE {
+                for i in 0..SIZE {
                     unsafe { *res.data.get_unchecked_mut(i) = <$simd>::splat(elem) }
                 }
                 res
@@ -167,8 +135,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 3, 4]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 2, 3, 4]);
             /// ```
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self {
@@ -182,8 +149,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// assert_eq!(MSu32x2::<U2>::len(), 4);
+            /// assert_eq!(MSu32x2::<2>::len(), 4);
             /// ```
             #[inline]
             pub fn len() -> usize {
@@ -196,8 +162,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[1, 2, 3, 4]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[1, 2, 3, 4]);
             /// multiset.clear();
             /// assert_eq!(multiset.is_empty(), true);
             /// ```
@@ -212,8 +177,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(multiset.contains(1), true);
             /// assert_eq!(multiset.contains(3), false);
             /// assert_eq!(multiset.contains(5), false);
@@ -242,8 +206,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
             /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
             /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
@@ -271,8 +234,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// multiset.insert(2, 5);
             /// assert_eq!(multiset.get(2), Some(5));
             /// ```
@@ -297,8 +259,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// unsafe { multiset.insert_unchecked(2, 5) };
             /// assert_eq!(multiset.get(2), Some(5));
             /// // unsafe { multiset.insert_unchecked(5, 10) };  NOT SAFE!!!
@@ -324,8 +285,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// multiset.remove(1);
             /// assert_eq!(multiset.get(1), Some(0));
             /// ```
@@ -350,8 +310,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// unsafe { multiset.remove_unchecked(1) };
             /// assert_eq!(multiset.get(1), Some(0));
             /// // unsafe { multiset.remove_unchecked(5) };  NOT SAFE!!!
@@ -377,8 +336,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(multiset.get(1), Some(2));
             /// assert_eq!(multiset.get(3), Some(0));
             /// assert_eq!(multiset.get(5), None);
@@ -399,8 +357,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.get_unchecked(1) }, 2);
             /// assert_eq!(unsafe { multiset.get_unchecked(3) }, 0);
             /// // unsafe { multiset.get_unchecked(5) };  NOT SAFE!!!
@@ -428,10 +385,9 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[0, 2, 3, 0]);
-            /// let c = MSu32x2::<U2>::from_slice(&[0, 2, 0, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[0, 2, 3, 0]);
+            /// let c = MSu32x2::<2>::from_slice(&[0, 2, 0, 0]);
             /// assert_eq!(a.intersection(&b), c);
             /// ```
             #[inline]
@@ -448,10 +404,9 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[0, 2, 3, 0]);
-            /// let c = MSu32x2::<U2>::from_slice(&[1, 2, 3, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[0, 2, 3, 0]);
+            /// let c = MSu32x2::<2>::from_slice(&[1, 2, 3, 0]);
             /// assert_eq!(a.union(&b), c);
             /// ```
             #[inline]
@@ -465,8 +420,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 0, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 0, 0, 0]);
             /// assert_eq!(multiset.count_zero(), 3);
             /// ```
             #[inline]
@@ -482,8 +436,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 0, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 0, 0, 0]);
             /// assert_eq!(multiset.count_non_zero(), 1);
             /// ```
             #[inline]
@@ -499,10 +452,9 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[0, 0, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[0, 0, 0, 0]);
             /// assert_eq!(multiset.is_empty(), true);
-            /// assert_eq!(MSu32x2::<U2>::empty().is_empty(), true);
+            /// assert_eq!(MSu32x2::<2>::empty().is_empty(), true);
             /// ```
             #[inline]
             pub fn is_empty(&self) -> bool {
@@ -515,8 +467,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[0, 5, 0, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[0, 5, 0, 0]);
             /// assert_eq!(multiset.is_singleton(), true);
             /// ```
             #[inline]
@@ -530,9 +481,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[0, 0, 3, 4]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[0, 0, 3, 4]);
             /// assert_eq!(a.is_disjoint(&a), false);
             /// assert_eq!(a.is_disjoint(&b), true);
             /// ```
@@ -553,9 +503,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[1, 3, 0, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[1, 3, 0, 0]);
             /// assert_eq!(a.is_subset(&a), true);
             /// assert_eq!(a.is_subset(&b), true);
             /// ```
@@ -575,9 +524,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[1, 1, 0, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[1, 1, 0, 0]);
             /// assert_eq!(a.is_superset(&a), true);
             /// assert_eq!(a.is_superset(&b), true);
             /// ```
@@ -598,9 +546,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[1, 3, 0, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[1, 3, 0, 0]);
             /// assert_eq!(a.is_proper_subset(&a), false);
             /// assert_eq!(a.is_proper_subset(&b), true);
             /// ```
@@ -618,9 +565,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[1, 1, 0, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[1, 1, 0, 0]);
             /// assert_eq!(a.is_proper_superset(&a), false);
             /// assert_eq!(a.is_proper_superset(&b), true);
             /// ```
@@ -637,9 +583,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 4, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[1, 3, 0, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 4, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[1, 3, 0, 0]);
             /// assert_eq!(a.is_any_lesser(&a), false);
             /// assert_eq!(a.is_any_lesser(&b), true);
             /// ```
@@ -659,9 +604,8 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let a = MSu32x2::<U2>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu32x2::<U2>::from_slice(&[1, 1, 4, 0]);
+            /// let a = MSu32x2::<2>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu32x2::<2>::from_slice(&[1, 1, 4, 0]);
             /// assert_eq!(a.is_any_greater(&a), false);
             /// assert_eq!(a.is_any_greater(&b), true);
             /// ```
@@ -680,8 +624,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[1, 2, 3, 4]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[1, 2, 3, 4]);
             /// assert_eq!(multiset.total(), 10);
             /// ```
             ///
@@ -701,8 +644,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.argmax(), (2, 5));
             /// ```
             ///
@@ -713,7 +655,7 @@ macro_rules! multiset_simd_array {
                 let mut the_max = unsafe { self.data.get_unchecked(0).extract_unchecked(0) };
                 let mut the_i = 0;
 
-                for arr_idx in 0..U::USIZE {
+                for arr_idx in 0..SIZE {
                     for i in 0..<$simd>::lanes() {
                         let val = unsafe { self.data.get_unchecked(arr_idx).extract_unchecked(i) };
                         if val > the_max {
@@ -731,8 +673,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.imax(), 2);
             /// ```
             ///
@@ -749,8 +690,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.max(), 5);
             /// ```
             ///
@@ -769,8 +709,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.argmin(), (1, 0));
             /// ```
             ///
@@ -781,7 +720,7 @@ macro_rules! multiset_simd_array {
                 let mut the_min = unsafe { self.data.get_unchecked(0).extract_unchecked(0) };
                 let mut the_i = 0;
 
-                for arr_idx in 0..U::USIZE {
+                for arr_idx in 0..SIZE {
                     for i in 0..<$simd>::lanes() {
                         let val = unsafe { self.data.get_unchecked(arr_idx).extract_unchecked(i) };
                         if val < the_min {
@@ -799,8 +738,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.imin(), 1);
             /// ```
             ///
@@ -817,8 +755,7 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.min(), 0);
             /// ```
             ///
@@ -836,10 +773,9 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// multiset.choose(2);
-            /// let result = MSu32x2::<U2>::from_slice(&[0, 0, 5, 0]);
+            /// let result = MSu32x2::<2>::from_slice(&[0, 0, 5, 0]);
             /// assert_eq!(multiset, result);
             /// ```
             #[inline]
@@ -847,7 +783,7 @@ macro_rules! multiset_simd_array {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
 
-                for i in 0..U::USIZE {
+                for i in 0..SIZE {
                     let data = unsafe { self.data.get_unchecked_mut(i) };
                     if i == array_index {
                         let mask = <$simd_mask>::splat(false).replace(vector_index, true);
@@ -865,10 +801,9 @@ macro_rules! multiset_simd_array {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
             /// use rand::prelude::*;
             /// let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
-            /// let mut multiset = MSu32x2::<U2>::from_slice(&[2, 0, 5, 3]);
+            /// let mut multiset = MSu32x2::<2>::from_slice(&[2, 0, 5, 3]);
             /// multiset.choose_random(rng);
             /// assert_eq!(multiset.is_singleton(), true);
             /// ```
@@ -886,7 +821,7 @@ macro_rules! multiset_simd_array {
                 let mut vector_index: usize = 0;
                 let mut acc: $scalar = <$scalar>::ZERO;
                 let mut chosen: bool = false;
-                for i in 0..U::USIZE {
+                for i in 0..SIZE {
                     let elem_vec = unsafe { self.data.get_unchecked_mut(i) };
                     if chosen {
                         *elem_vec *= <$scalar>::ZERO
@@ -912,34 +847,32 @@ macro_rules! multiset_simd_array {
     };
 }
 
-multiset_simd_array!(MSu8x2<U>, u8x2, u8, m8x2);
-multiset_simd_array!(MSu8x4<U>, u8x4, u8, m8x4);
-multiset_simd_array!(MSu8x8<U>, u8x8, u8, m8x8);
-multiset_simd_array!(MSu8x16<U>, u8x16, u8, m8x16);
-multiset_simd_array!(MSu8x32<U>, u8x32, u8, m8x32);
-multiset_simd_array!(MSu8x64<U>, u8x64, u8, m8x64);
-multiset_simd_array!(MSu16x2<U>, u16x2, u16, m16x2);
-multiset_simd_array!(MSu16x4<U>, u16x4, u16, m16x4);
-multiset_simd_array!(MSu16x8<U>, u16x8, u16, m16x8);
-multiset_simd_array!(MSu16x16<U>, u16x16, u16, m16x16);
-multiset_simd_array!(MSu16x32<U>, u16x32, u16, m16x32);
-multiset_simd_array!(MSu32x2<U>, u32x2, u32, m32x2);
-multiset_simd_array!(MSu32x4<U>, u32x4, u32, m32x4);
-multiset_simd_array!(MSu32x8<U>, u32x8, u32, m32x8);
-multiset_simd_array!(MSu32x16<U>, u32x16, u32, m32x16);
-multiset_simd_array!(MSu64x2<U>, u64x2, u64, m64x2);
-multiset_simd_array!(MSu64x4<U>, u64x4, u64, m64x4);
-multiset_simd_array!(MSu64x8<U>, u64x8, u64, m64x8);
+multiset_simd_array!(MSu8x2<SIZE>, u8x2, u8, m8x2);
+multiset_simd_array!(MSu8x4<SIZE>, u8x4, u8, m8x4);
+multiset_simd_array!(MSu8x8<SIZE>, u8x8, u8, m8x8);
+multiset_simd_array!(MSu8x16<SIZE>, u8x16, u8, m8x16);
+multiset_simd_array!(MSu8x32<SIZE>, u8x32, u8, m8x32);
+multiset_simd_array!(MSu8x64<SIZE>, u8x64, u8, m8x64);
+multiset_simd_array!(MSu16x2<SIZE>, u16x2, u16, m16x2);
+multiset_simd_array!(MSu16x4<SIZE>, u16x4, u16, m16x4);
+multiset_simd_array!(MSu16x8<SIZE>, u16x8, u16, m16x8);
+multiset_simd_array!(MSu16x16<SIZE>, u16x16, u16, m16x16);
+multiset_simd_array!(MSu16x32<SIZE>, u16x32, u16, m16x32);
+multiset_simd_array!(MSu32x2<SIZE>, u32x2, u32, m32x2);
+multiset_simd_array!(MSu32x4<SIZE>, u32x4, u32, m32x4);
+multiset_simd_array!(MSu32x8<SIZE>, u32x8, u32, m32x8);
+multiset_simd_array!(MSu32x16<SIZE>, u32x16, u32, m32x16);
+multiset_simd_array!(MSu64x2<SIZE>, u64x2, u64, m64x2);
+multiset_simd_array!(MSu64x4<SIZE>, u64x4, u64, m64x4);
+multiset_simd_array!(MSu64x8<SIZE>, u64x8, u64, m64x8);
 
 // Any alias where the simd type has an f64 equivalent lane-wise, can use this implementation.
 macro_rules! multiset_simd_array_stats {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_float:ty) => {
-        impl<U: Unsigned> $alias
+        impl<const SIZE: usize> $alias
             where
-                U: ArrayLength<$simd>,
                 f64: From<$scalar>,
                 $simd_float: From<$simd>,
-                U::ArrayType: Copy,
         {
             /// Calculate the collision entropy of the multiset.
             ///
@@ -947,8 +880,7 @@ macro_rules! multiset_simd_array_stats {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 1, 1, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 1, 1, 0]);
             /// let result = multiset.collision_entropy();
             /// // approximate: result == 1.415037499278844
             /// ```
@@ -973,8 +905,7 @@ macro_rules! multiset_simd_array_stats {
             ///
             /// ```no_run
             /// use utote::MSu32x2;
-            /// use typenum::U2;
-            /// let multiset = MSu32x2::<U2>::from_slice(&[2, 1, 1, 0]);
+            /// let multiset = MSu32x2::<2>::from_slice(&[2, 1, 1, 0]);
             /// let result = multiset.shannon_entropy();
             /// // approximate: result == 1.0397207708399179
             /// ```
@@ -996,42 +927,42 @@ macro_rules! multiset_simd_array_stats {
     }
 }
 
-multiset_simd_array_stats!(MSu8x2<U>, u8x2, u8, f64x2);
-multiset_simd_array_stats!(MSu8x4<U>, u8x4, u8, f64x4);
-multiset_simd_array_stats!(MSu8x8<U>, u8x8, u8, f64x8);
-multiset_simd_array_stats!(MSu16x2<U>, u16x2, u16, f64x2);
-multiset_simd_array_stats!(MSu16x4<U>, u16x4, u16, f64x4);
-multiset_simd_array_stats!(MSu16x8<U>, u16x8, u16, f64x8);
-multiset_simd_array_stats!(MSu32x2<U>, u32x2, u32, f64x2);
-multiset_simd_array_stats!(MSu32x4<U>, u32x4, u32, f64x4);
-multiset_simd_array_stats!(MSu32x8<U>, u32x8, u32, f64x8);
+multiset_simd_array_stats!(MSu8x2<SIZE>, u8x2, u8, f64x2);
+multiset_simd_array_stats!(MSu8x4<SIZE>, u8x4, u8, f64x4);
+multiset_simd_array_stats!(MSu8x8<SIZE>, u8x8, u8, f64x8);
+multiset_simd_array_stats!(MSu16x2<SIZE>, u16x2, u16, f64x2);
+multiset_simd_array_stats!(MSu16x4<SIZE>, u16x4, u16, f64x4);
+multiset_simd_array_stats!(MSu16x8<SIZE>, u16x8, u16, f64x8);
+multiset_simd_array_stats!(MSu32x2<SIZE>, u32x2, u32, f64x2);
+multiset_simd_array_stats!(MSu32x4<SIZE>, u32x4, u32, f64x4);
+multiset_simd_array_stats!(MSu32x8<SIZE>, u32x8, u32, f64x8);
 
-pub type MSu8x2<U> = Multiset<u8x2, U>;
-pub type MSu8x4<U> = Multiset<u8x4, U>;
-pub type MSu8x8<U> = Multiset<u8x8, U>;
-pub type MSu8x16<U> = Multiset<u8x16, U>;
-pub type MSu8x32<U> = Multiset<u8x32, U>;
-pub type MSu8x64<U> = Multiset<u8x64, U>;
+pub type MSu8x2<const SIZE: usize> = Multiset<u8x2, SIZE>;
+pub type MSu8x4<const SIZE: usize> = Multiset<u8x4, SIZE>;
+pub type MSu8x8<const SIZE: usize> = Multiset<u8x8, SIZE>;
+pub type MSu8x16<const SIZE: usize> = Multiset<u8x16, SIZE>;
+pub type MSu8x32<const SIZE: usize> = Multiset<u8x32, SIZE>;
+pub type MSu8x64<const SIZE: usize> = Multiset<u8x64, SIZE>;
 
-pub type MSu16x2<U> = Multiset<u16x2, U>;
-pub type MSu16x4<U> = Multiset<u16x4, U>;
-pub type MSu16x8<U> = Multiset<u16x8, U>;
-pub type MSu16x16<U> = Multiset<u16x16, U>;
-pub type MSu16x32<U> = Multiset<u16x32, U>;
+pub type MSu16x2<const SIZE: usize> = Multiset<u16x2, SIZE>;
+pub type MSu16x4<const SIZE: usize> = Multiset<u16x4, SIZE>;
+pub type MSu16x8<const SIZE: usize> = Multiset<u16x8, SIZE>;
+pub type MSu16x16<const SIZE: usize> = Multiset<u16x16, SIZE>;
+pub type MSu16x32<const SIZE: usize> = Multiset<u16x32, SIZE>;
 
-pub type MSu32x2<U> = Multiset<u32x2, U>;
-pub type MSu32x4<U> = Multiset<u32x4, U>;
-pub type MSu32x8<U> = Multiset<u32x8, U>;
-pub type MSu32x16<U> = Multiset<u32x16, U>;
+pub type MSu32x2<const SIZE: usize> = Multiset<u32x2, SIZE>;
+pub type MSu32x4<const SIZE: usize> = Multiset<u32x4, SIZE>;
+pub type MSu32x8<const SIZE: usize> = Multiset<u32x8, SIZE>;
+pub type MSu32x16<const SIZE: usize> = Multiset<u32x16, SIZE>;
 
-pub type MSu64x2<U> = Multiset<u64x2, U>;
-pub type MSu64x4<U> = Multiset<u64x4, U>;
-pub type MSu64x8<U> = Multiset<u64x8, U>;
+pub type MSu64x2<const SIZE: usize> = Multiset<u64x2, SIZE>;
+pub type MSu64x4<const SIZE: usize> = Multiset<u64x4, SIZE>;
+pub type MSu64x8<const SIZE: usize> = Multiset<u64x8, SIZE>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    tests_x4!(ms2u32x2, u32x2, typenum::U2);
-    tests_x8!(ms1u8x8, u8x8, typenum::U1);
-    tests_x8!(ms2u32x4, u32x4, typenum::U2);
+    tests_x4!(ms2u32x2, u32x2, 2);
+    tests_x8!(ms1u8x8, u8x8, 1);
+    tests_x8!(ms2u32x4, u32x4, 2);
 }

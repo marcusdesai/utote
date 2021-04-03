@@ -1,20 +1,14 @@
-use generic_array::ArrayLength;
 #[cfg(feature = "rand")]
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
-use typenum::Unsigned;
 
 use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_scalar_array {
     ($($alias:ty, $scalar:ty),*) => {
-        $(impl<U: Unsigned> FromIterator<$scalar> for $alias
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
+        $(impl<const SIZE: usize> FromIterator<$scalar> for $alias {
             #[inline]
             fn from_iter<T: IntoIterator<Item=$scalar>>(iter: T) -> Self {
                 let mut res: Self = unsafe { Multiset::new_uninitialized() };
@@ -31,11 +25,7 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<'a, U: Unsigned> FromIterator<&'a $scalar> for $alias
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
+        impl<'a, const SIZE: usize> FromIterator<&'a $scalar> for $alias {
             #[inline]
             fn from_iter<T: IntoIterator<Item=&'a $scalar>>(iter: T) -> Self {
                 let mut res: Self = unsafe { Multiset::new_uninitialized() };
@@ -52,21 +42,13 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U: Unsigned> PartialOrd for $alias
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> PartialOrd for $alias {
             partial_ord_body!();
         }
 
-        impl<U: Unsigned> IntoIterator for $alias
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> IntoIterator for $alias {
             type Item = $scalar;
-            type IntoIter = MultisetIterator<$scalar, U>;
+            type IntoIter = MultisetIterator<$scalar, SIZE>;
 
             fn into_iter(self) -> Self::IntoIter {
                 MultisetIterator {
@@ -76,11 +58,7 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U: Unsigned> Iterator for MultisetIterator<$scalar, U>
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> Iterator for MultisetIterator<$scalar, SIZE> {
             type Item = $scalar;
 
             fn next(&mut self) -> Option<Self::Item> {
@@ -94,22 +72,13 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U: Unsigned> ExactSizeIterator for MultisetIterator<$scalar, U>
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
+        impl<const SIZE: usize> ExactSizeIterator for MultisetIterator<$scalar, SIZE> {
             fn len(&self) -> usize {
                 <$alias>::len()
             }
         }
 
-        impl<U: Unsigned> $alias
-            where
-                U: ArrayLength<$scalar>,
-                U::ArrayType: Copy,
-        {
-            pub const SIZE: usize = U::USIZE;
+        impl<const SIZE: usize> $alias {
 
             /// Returns a Multiset of the given array size with all elements set to zero.
             ///
@@ -117,8 +86,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::empty();
+            /// let multiset = MSu8::<4>::empty();
             /// ```
             #[inline]
             pub fn empty() -> Self {
@@ -131,8 +99,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::repeat(5);
+            /// let multiset = MSu8::<4>::repeat(5);
             /// ```
             #[inline]
             pub fn repeat(elem: $scalar) -> Self {
@@ -149,8 +116,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 3, 4]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
             /// ```
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self
@@ -173,11 +139,10 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// assert_eq!(MSu8::<U4>::len(), 4);
+            /// assert_eq!(MSu8::<4>::len(), 4);
             /// ```
             #[inline]
-            pub fn len() -> usize { Self::SIZE }
+            pub fn len() -> usize { SIZE }
 
             /// Sets all element counts in the multiset to zero.
             ///
@@ -185,8 +150,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let mut multiset = MSu8::<U4>::from_slice(&[1, 2, 3, 4]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
             /// multiset.clear();
             /// assert_eq!(multiset.is_empty(), true);
             /// ```
@@ -201,8 +165,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(multiset.contains(1), true);
             /// assert_eq!(multiset.contains(3), false);
             /// assert_eq!(multiset.contains(5), false);
@@ -219,8 +182,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
             /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
             /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
@@ -240,8 +202,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let mut multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// multiset.insert(2, 5);
             /// assert_eq!(multiset.get(2), Some(5));
             /// ```
@@ -258,8 +219,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let mut multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// unsafe { multiset.insert_unchecked(2, 5) };
             /// assert_eq!(multiset.get(2), Some(5));
             /// // unsafe { multiset.insert_unchecked(5, 10) };  NOT SAFE!!!
@@ -279,8 +239,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let mut multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// multiset.remove(1);
             /// assert_eq!(multiset.get(1), Some(0));
             /// ```
@@ -297,8 +256,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let mut multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// unsafe { multiset.remove_unchecked(1) };
             /// assert_eq!(multiset.get(1), Some(0));
             /// // unsafe { multiset.remove_unchecked(5) };  NOT SAFE!!!
@@ -318,8 +276,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(multiset.get(1), Some(2));
             /// assert_eq!(multiset.get(3), Some(0));
             /// assert_eq!(multiset.get(5), None);
@@ -335,8 +292,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// assert_eq!(unsafe { multiset.get_unchecked(1) }, 2);
             /// assert_eq!(unsafe { multiset.get_unchecked(3) }, 0);
             /// // unsafe { multiset.get_unchecked(5) };  NOT SAFE!!!
@@ -359,10 +315,9 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[0, 2, 3, 0]);
-            /// let c = MSu8::<U4>::from_slice(&[0, 2, 0, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[0, 2, 3, 0]);
+            /// let c = MSu8::<4>::from_slice(&[0, 2, 0, 0]);
             /// assert_eq!(a.intersection(&b), c);
             /// ```
             #[inline]
@@ -379,10 +334,9 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[0, 2, 3, 0]);
-            /// let c = MSu8::<U4>::from_slice(&[1, 2, 3, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[0, 2, 3, 0]);
+            /// let c = MSu8::<4>::from_slice(&[1, 2, 3, 0]);
             /// assert_eq!(a.union(&b), c);
             /// ```
             #[inline]
@@ -396,8 +350,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 0, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 0, 0, 0]);
             /// assert_eq!(multiset.count_zero(), 3);
             /// ```
             #[inline]
@@ -411,8 +364,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 0, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 0, 0, 0]);
             /// assert_eq!(multiset.count_non_zero(), 1);
             /// ```
             #[inline]
@@ -426,10 +378,9 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[0, 0, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[0, 0, 0, 0]);
             /// assert_eq!(multiset.is_empty(), true);
-            /// assert_eq!(MSu8::<U4>::empty().is_empty(), true);
+            /// assert_eq!(MSu8::<4>::empty().is_empty(), true);
             /// ```
             #[inline]
             pub fn is_empty(&self) -> bool {
@@ -442,8 +393,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[0, 5, 0, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[0, 5, 0, 0]);
             /// assert_eq!(multiset.is_singleton(), true);
             /// ```
             #[inline]
@@ -457,9 +407,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[0, 0, 3, 4]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[0, 0, 3, 4]);
             /// assert_eq!(a.is_disjoint(&a), false);
             /// assert_eq!(a.is_disjoint(&b), true);
             /// ```
@@ -480,9 +429,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[1, 3, 0, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[1, 3, 0, 0]);
             /// assert_eq!(a.is_subset(&a), true);
             /// assert_eq!(a.is_subset(&b), true);
             /// ```
@@ -499,9 +447,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[1, 1, 0, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[1, 1, 0, 0]);
             /// assert_eq!(a.is_superset(&a), true);
             /// assert_eq!(a.is_superset(&b), true);
             /// ```
@@ -519,9 +466,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[1, 3, 0, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[1, 3, 0, 0]);
             /// assert_eq!(a.is_proper_subset(&a), false);
             /// assert_eq!(a.is_proper_subset(&b), true);
             /// ```
@@ -539,9 +485,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[1, 1, 0, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[1, 1, 0, 0]);
             /// assert_eq!(a.is_proper_superset(&a), false);
             /// assert_eq!(a.is_proper_superset(&b), true);
             /// ```
@@ -558,9 +503,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 4, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[1, 3, 0, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 4, 0]);
+            /// let b = MSu8::<4>::from_slice(&[1, 3, 0, 0]);
             /// assert_eq!(a.is_any_lesser(&a), false);
             /// assert_eq!(a.is_any_lesser(&b), true);
             /// ```
@@ -577,9 +521,8 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let a = MSu8::<U4>::from_slice(&[1, 2, 0, 0]);
-            /// let b = MSu8::<U4>::from_slice(&[1, 1, 4, 0]);
+            /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+            /// let b = MSu8::<4>::from_slice(&[1, 1, 4, 0]);
             /// assert_eq!(a.is_any_greater(&a), false);
             /// assert_eq!(a.is_any_greater(&b), true);
             /// ```
@@ -595,8 +538,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[1, 2, 3, 4]);
+            /// let multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
             /// assert_eq!(multiset.total(), 10);
             /// ```
             ///
@@ -614,8 +556,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.argmax(), (2, 5));
             /// ```
             #[inline]
@@ -639,8 +580,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.imax(), 2);
             /// ```
             #[inline]
@@ -654,8 +594,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.max(), 5);
             /// ```
             #[inline]
@@ -678,8 +617,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.argmin(), (1, 0));
             /// ```
             #[inline]
@@ -703,8 +641,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.imin(), 1);
             /// ```
             #[inline]
@@ -718,8 +655,7 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// assert_eq!(multiset.min(), 0);
             /// ```
             #[inline]
@@ -741,10 +677,9 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let mut multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// multiset.choose(2);
-            /// let result = MSu8::<U4>::from_slice(&[0, 0, 5, 0]);
+            /// let result = MSu8::<4>::from_slice(&[0, 0, 5, 0]);
             /// assert_eq!(multiset, result);
             /// ```
             #[inline]
@@ -763,10 +698,9 @@ macro_rules! multiset_scalar_array {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
             /// use rand::prelude::*;
             /// let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
-            /// let mut multiset = MSu8::<U4>::from_slice(&[2, 0, 5, 3]);
+            /// let mut multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
             /// multiset.choose_random(rng);
             /// assert_eq!(multiset.is_singleton(), true);
             /// ```
@@ -798,17 +732,15 @@ macro_rules! multiset_scalar_array {
 }
 
 multiset_scalar_array!(
-    MSu8<U>, u8, MSu16<U>, u16, MSu32<U>, u32, MSu64<U>, u64
+    MSu8<SIZE>, u8, MSu16<SIZE>, u16, MSu32<SIZE>, u32, MSu64<SIZE>, u64
 );
 
 // Any alias where the scalar type can lossless cast to f64 can use this implementation.
 macro_rules! multiset_scalar_array_stats {
     ($($alias:ty, $scalar:ty),*) => {
-        $(impl<U: Unsigned> $alias
+        $(impl<const SIZE: usize> $alias
             where
-                U: ArrayLength<$scalar>,
                 f64: From<$scalar>,
-                U::ArrayType: Copy,
         {
             /// Calculate the collision entropy of the multiset.
             ///
@@ -816,8 +748,7 @@ macro_rules! multiset_scalar_array_stats {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 1, 1, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 1, 1, 0]);
             /// let result = multiset.collision_entropy();
             /// // approximate: result == 1.415037499278844
             /// ```
@@ -835,8 +766,7 @@ macro_rules! multiset_scalar_array_stats {
             ///
             /// ```no_run
             /// use utote::MSu8;
-            /// use typenum::U4;
-            /// let multiset = MSu8::<U4>::from_slice(&[2, 1, 1, 0]);
+            /// let multiset = MSu8::<4>::from_slice(&[2, 1, 1, 0]);
             /// let result = multiset.shannon_entropy();
             /// // approximate: result == 1.0397207708399179
             /// ```
@@ -856,17 +786,17 @@ macro_rules! multiset_scalar_array_stats {
     }
 }
 
-multiset_scalar_array_stats!(MSu8<U>, u8, MSu16<U>, u16, MSu32<U>, u32);
+multiset_scalar_array_stats!(MSu8<SIZE>, u8, MSu16<SIZE>, u16, MSu32<SIZE>, u32);
 
-pub type MSu8<U> = Multiset<u8, U>;
-pub type MSu16<U> = Multiset<u16, U>;
-pub type MSu32<U> = Multiset<u32, U>;
-pub type MSu64<U> = Multiset<u64, U>;
+pub type MSu8<const SIZE: usize> = Multiset<u8, SIZE>;
+pub type MSu16<const SIZE: usize> = Multiset<u16, SIZE>;
+pub type MSu32<const SIZE: usize> = Multiset<u32, SIZE>;
+pub type MSu64<const SIZE: usize> = Multiset<u64, SIZE>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    tests_x4!(ms4u32, u32, typenum::U4);
-    tests_x8!(ms8u16, u16, typenum::U8);
-    tests_x4!(ms4u8, u8, typenum::U4);
+    tests_x4!(ms4u32, u32, 4);
+    tests_x8!(ms8u16, u16, 8);
+    tests_x4!(ms4u8, u8, 4);
 }

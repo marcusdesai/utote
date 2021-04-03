@@ -3,10 +3,10 @@ use packed_simd::*;
 use rand::prelude::*;
 use utote::Multiset;
 
-type MS4u32 = Multiset<u32, typenum::U4>;
-type MS0u32x4 = Multiset<u32x4, typenum::U0>;
-type MS2u32x2 = Multiset<u32x2, typenum::U2>;
-type MS1u32x4 = Multiset<u32x4, typenum::U1>;
+type MS4u32 = Multiset<u32, 4>;
+type MS0u32x4 = Multiset<u32x4, 1>;
+type MS2u32x2 = Multiset<u32x2, 2>;
+type MS1u32x4 = Multiset<u32x4, 1>;
 
 fn _random_array(rng: &mut SmallRng) -> [u32; 4] {
     [rng.gen(), rng.gen(), rng.gen(), rng.gen()]
