@@ -53,24 +53,6 @@ let multiset = MSu8x2::<U2>::from_slice(&[1, 3, 5, 7]);
 assert_eq!(multiset.total(), 16);
 assert_eq!(multiset.get(1), Some(3));
 ```
-
-In addition to multisets which consist of arrays of SIMD values, utote also implements multisets
-which use a SIMD vector directly for the multiset data. Inline with the above reasoning for SIMD
-use, the purpose of these types is so that, in the case where an array of SIMD values is not
-needed, the user can ensure that no code used in managing the arrays is used in the program.
-
-```
-use utote::{MSu16x4, MS0u16x4};
-use typenum::U0;
-
-// This type alias is equivalent to MS0u16x4
-type MSDirectSimd = MSu16x4<U0>;
-
-let multiset = MS0u16x4::from_slice(&[1, 3, 5, 7]);
-
-assert_eq!(multiset.total(), 16);
-assert_eq!(multiset.get(1), Some(3));
-```
 */
 
 mod multiset;
@@ -97,20 +79,23 @@ pub use typenum;
 #[cfg(feature = "packed_simd")]
 pub use packed_simd;
 
-// // test generic usage - currently failing without use of un-ergonomic constraints
-// #[cfg(test)]
-// mod generic_tests {
-//     use super::*;
-//     use typenum::{Unsigned, Bit, UInt};
-//     use packed_simd::u8x2;
-//     use generic_array::ArrayLength;
-//
-//     fn blah<U: Unsigned + MultisetStorage<u8x2>>(x: MSu8x2<U>) {
-//         x.intersection(&x);
-//     }
-//
-//     #[test]
-//     fn test_blah() {
-//         blah(MSu8x2::<typenum::U4>::repeat(2))
-//     }
-// }
+#[cfg(test)]
+mod generic_tests {
+    use super::*;
+    use typenum::Unsigned;
+    use packed_simd::u8x2;
+    use generic_array::ArrayLength;
+
+    fn generic<U: Unsigned + MultisetStorage<u8x2>>(x: MSu8x2<U>)
+        where
+            U: ArrayLength<u8x2>,
+            U::ArrayType: Copy,
+    {
+        x.intersection(&x);
+    }
+
+    #[test]
+    fn test_generic() {
+        generic(MSu8x2::<typenum::U4>::repeat(2))
+    }
+}

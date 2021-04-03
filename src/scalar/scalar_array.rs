@@ -3,21 +3,21 @@ use generic_array::ArrayLength;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::iter::FromIterator;
-use typenum::bit::Bit;
-use typenum::uint::{UInt, Unsigned};
+use typenum::Unsigned;
 
 use crate::multiset::{Multiset, MultisetIterator};
 use crate::small_num::SmallNumConsts;
 
 macro_rules! multiset_scalar_array {
     ($($alias:ty, $scalar:ty),*) => {
-        $(impl<U: Unsigned, B: Bit> FromIterator<$scalar> for $alias
+        $(impl<U: Unsigned> FromIterator<$scalar> for $alias
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
             #[inline]
             fn from_iter<T: IntoIterator<Item=$scalar>>(iter: T) -> Self {
-                let mut res = unsafe { Multiset::new_uninitialized() };
+                let mut res: Self = unsafe { Multiset::new_uninitialized() };
                 let mut it = iter.into_iter();
 
                 for i in 0..Self::len() {
@@ -31,13 +31,14 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<'a, U: Unsigned, B: Bit> FromIterator<&'a $scalar> for $alias
+        impl<'a, U: Unsigned> FromIterator<&'a $scalar> for $alias
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
             #[inline]
             fn from_iter<T: IntoIterator<Item=&'a $scalar>>(iter: T) -> Self {
-                let mut res = unsafe { Multiset::new_uninitialized() };
+                let mut res: Self = unsafe { Multiset::new_uninitialized() };
                 let mut it = iter.into_iter();
 
                 for i in 0..Self::len() {
@@ -51,19 +52,21 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U: Unsigned, B: Bit> PartialOrd for $alias
+        impl<U: Unsigned> PartialOrd for $alias
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
             partial_ord_body!();
         }
 
-        impl<U: Unsigned, B: Bit> IntoIterator for $alias
+        impl<U: Unsigned> IntoIterator for $alias
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
             type Item = $scalar;
-            type IntoIter = MultisetIterator<$scalar, UInt::<U, B>>;
+            type IntoIter = MultisetIterator<$scalar, U>;
 
             fn into_iter(self) -> Self::IntoIter {
                 MultisetIterator {
@@ -73,9 +76,10 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U: Unsigned, B: Bit> Iterator for MultisetIterator<$scalar, UInt::<U, B>>
+        impl<U: Unsigned> Iterator for MultisetIterator<$scalar, U>
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
             type Item = $scalar;
 
@@ -90,20 +94,22 @@ macro_rules! multiset_scalar_array {
             }
         }
 
-        impl<U: Unsigned, B: Bit> ExactSizeIterator for MultisetIterator<$scalar, UInt::<U, B>>
+        impl<U: Unsigned> ExactSizeIterator for MultisetIterator<$scalar, U>
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
             fn len(&self) -> usize {
                 <$alias>::len()
             }
         }
 
-        impl<U: Unsigned, B: Bit> $alias
+        impl<U: Unsigned> $alias
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
+                U::ArrayType: Copy,
         {
-            pub const SIZE: usize = UInt::<U, B>::USIZE;
+            pub const SIZE: usize = U::USIZE;
 
             /// Returns a Multiset of the given array size with all elements set to zero.
             ///
@@ -130,7 +136,7 @@ macro_rules! multiset_scalar_array {
             /// ```
             #[inline]
             pub fn repeat(elem: $scalar) -> Self {
-                let mut res = unsafe { Multiset::new_uninitialized() };
+                let mut res: Self = unsafe { Multiset::new_uninitialized() };
                 for i in 0..Self::len() {
                     unsafe { *res.data.get_unchecked_mut(i) = elem }
                 }
@@ -150,7 +156,7 @@ macro_rules! multiset_scalar_array {
             pub fn from_slice(slice: &[$scalar]) -> Self
             {
                 assert_eq!(slice.len(), Self::len());
-                let mut res = unsafe { Multiset::new_uninitialized() };
+                let mut res: Self = unsafe { Multiset::new_uninitialized() };
                 let mut iter = slice.iter();
 
                 for i in 0..Self::len() {
@@ -792,16 +798,17 @@ macro_rules! multiset_scalar_array {
 }
 
 multiset_scalar_array!(
-    MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32, MSu64<UInt<U, B>>, u64
+    MSu8<U>, u8, MSu16<U>, u16, MSu32<U>, u32, MSu64<U>, u64
 );
 
 // Any alias where the scalar type can lossless cast to f64 can use this implementation.
 macro_rules! multiset_scalar_array_stats {
     ($($alias:ty, $scalar:ty),*) => {
-        $(impl<U: Unsigned, B: Bit> $alias
+        $(impl<U: Unsigned> $alias
             where
-                UInt<U, B>: ArrayLength<$scalar>,
+                U: ArrayLength<$scalar>,
                 f64: From<$scalar>,
+                U::ArrayType: Copy,
         {
             /// Calculate the collision entropy of the multiset.
             ///
@@ -849,7 +856,7 @@ macro_rules! multiset_scalar_array_stats {
     }
 }
 
-multiset_scalar_array_stats!(MSu8<UInt<U, B>>, u8, MSu16<UInt<U, B>>, u16, MSu32<UInt<U, B>>, u32);
+multiset_scalar_array_stats!(MSu8<U>, u8, MSu16<U>, u16, MSu32<U>, u32);
 
 pub type MSu8<U> = Multiset<u8, U>;
 pub type MSu16<U> = Multiset<u16, U>;

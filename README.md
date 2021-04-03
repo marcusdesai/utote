@@ -54,6 +54,10 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+### 0.4.0
+- Deprecate direct SIMD implementation
+- todo: zip map improve
+
 ### 0.3.5
 - fix choose_random implementations
 
