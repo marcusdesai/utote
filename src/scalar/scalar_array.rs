@@ -53,7 +53,7 @@ macro_rules! multiset_scalar_array {
             fn into_iter(self) -> Self::IntoIter {
                 MultisetIterator {
                     multiset: self,
-                    index: 0
+                    index: 0,
                 }
             }
         }
@@ -79,6 +79,7 @@ macro_rules! multiset_scalar_array {
         }
 
         impl<const SIZE: usize> $alias {
+            pub const SIZE: usize = SIZE;
 
             /// Returns a Multiset of the given array size with all elements set to zero.
             ///
@@ -89,7 +90,7 @@ macro_rules! multiset_scalar_array {
             /// let multiset = MSu8::<4>::empty();
             /// ```
             #[inline]
-            pub fn empty() -> Self {
+            pub const fn empty() -> Self {
                 Self::repeat(<$scalar>::ZERO)
             }
 
@@ -102,12 +103,8 @@ macro_rules! multiset_scalar_array {
             /// let multiset = MSu8::<4>::repeat(5);
             /// ```
             #[inline]
-            pub fn repeat(elem: $scalar) -> Self {
-                let mut res: Self = unsafe { Multiset::new_uninitialized() };
-                for i in 0..Self::len() {
-                    unsafe { *res.data.get_unchecked_mut(i) = elem }
-                }
-                res
+            pub const fn repeat(elem: $scalar) -> Self {
+                Multiset { data: [elem; SIZE] }
             }
 
             /// Returns a Multiset from a slice of the given array size.
@@ -119,18 +116,8 @@ macro_rules! multiset_scalar_array {
             /// let multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
             /// ```
             #[inline]
-            pub fn from_slice(slice: &[$scalar]) -> Self
-            {
-                assert_eq!(slice.len(), Self::len());
-                let mut res: Self = unsafe { Multiset::new_uninitialized() };
-                let mut iter = slice.iter();
-
-                for i in 0..Self::len() {
-                    unsafe {
-                        *res.data.get_unchecked_mut(i) = *(iter.next().unwrap())
-                    }
-                }
-                res
+            pub fn from_slice(slice: &[$scalar]) -> Self {
+                slice.iter().copied().collect()
             }
 
             /// The number of elements in the multiset.
@@ -142,7 +129,7 @@ macro_rules! multiset_scalar_array {
             /// assert_eq!(MSu8::<4>::len(), 4);
             /// ```
             #[inline]
-            pub fn len() -> usize { SIZE }
+            pub const fn len() -> usize { SIZE }
 
             /// Sets all element counts in the multiset to zero.
             ///
@@ -156,7 +143,7 @@ macro_rules! multiset_scalar_array {
             /// ```
             #[inline]
             pub fn clear(&mut self) {
-                self.data.iter_mut().for_each(|e| *e *= <$scalar>::ZERO);
+                self.data.iter_mut().for_each(|e| *e = <$scalar>::ZERO);
             }
 
             /// Checks that a given element has at least one member in the multiset.
@@ -473,7 +460,7 @@ macro_rules! multiset_scalar_array {
             /// ```
             #[inline]
             pub fn is_proper_subset(&self, other: &Self) -> bool {
-                self.is_subset(other) && self.is_any_lesser(other)
+                self != other && self.is_subset(other)
             }
 
             /// Check whether `self` is a proper superset of `other`.
@@ -492,7 +479,7 @@ macro_rules! multiset_scalar_array {
             /// ```
             #[inline]
             pub fn is_proper_superset(&self, other: &Self) -> bool {
-                self.is_superset(other) && self.is_any_greater(other)
+                self != other && self.is_superset(other)
             }
 
             /// Check whether any element of `self` is less than an element of `other`.
@@ -684,11 +671,9 @@ macro_rules! multiset_scalar_array {
             /// ```
             #[inline]
             pub fn choose(&mut self, elem: usize) {
-                for i in 0..Self::len() {
-                    if i != elem {
-                        unsafe { *self.data.get_unchecked_mut(i) = <$scalar>::ZERO }
-                    }
-                }
+                self.data.iter_mut().enumerate().for_each(|(i, e)| {
+                    if i != elem { *e = <$scalar>::ZERO }
+                })
             }
 
             /// Set all element counts, except for a random choice, to zero. The choice is

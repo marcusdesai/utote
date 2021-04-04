@@ -54,7 +54,11 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
-### 0.4.0 (Breaking)
+### 0.4.1
+- Minor performance improvements
+- make `empty` & `repeat` constructors const
+
+## 0.4.0 (Breaking)
 - Deprecate direct SIMD implementation
 - Utilise const generics (removing generic-array & typenum)
 

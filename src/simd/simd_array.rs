@@ -107,7 +107,7 @@ macro_rules! multiset_simd_array {
             /// let multiset = MSu32x2::<2>::empty();
             /// ```
             #[inline]
-            pub fn empty() -> Self {
+            pub const fn empty() -> Self {
                 Self::repeat(<$scalar>::ZERO)
             }
 
@@ -121,12 +121,8 @@ macro_rules! multiset_simd_array {
             /// let multiset = MSu32x2::<2>::repeat(5);
             /// ```
             #[inline]
-            pub fn repeat(elem: $scalar) -> Self {
-                let mut res: Self = unsafe { Multiset::new_uninitialized() };
-                for i in 0..SIZE {
-                    unsafe { *res.data.get_unchecked_mut(i) = <$simd>::splat(elem) }
-                }
-                res
+            pub const fn repeat(elem: $scalar) -> Self {
+                Multiset { data: [<$simd>::splat(elem); SIZE] }
             }
 
             /// Returns a Multiset from a slice of the given array * SIMD vector size.
@@ -139,8 +135,7 @@ macro_rules! multiset_simd_array {
             /// ```
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self {
-                assert_eq!(slice.len(), Self::len());
-                Self::from_iter(slice.iter().cloned())
+                slice.iter().copied().collect()
             }
 
             /// The number of elements in the multiset.
@@ -152,7 +147,7 @@ macro_rules! multiset_simd_array {
             /// assert_eq!(MSu32x2::<2>::len(), 4);
             /// ```
             #[inline]
-            pub fn len() -> usize {
+            pub const fn len() -> usize {
                 Self::SIZE
             }
 
@@ -168,7 +163,7 @@ macro_rules! multiset_simd_array {
             /// ```
             #[inline]
             pub fn clear(&mut self) {
-                self.data.iter_mut().for_each(|e| *e *= <$scalar>::ZERO);
+                self.data.iter_mut().for_each(|e| *e = <$simd>::ZERO);
             }
 
             /// Checks that a given element has at least one member in the multiset.
@@ -553,7 +548,7 @@ macro_rules! multiset_simd_array {
             /// ```
             #[inline]
             pub fn is_proper_subset(&self, other: &Self) -> bool {
-                self.is_subset(other) && self.is_any_lesser(other)
+                self != other && self.is_subset(other)
             }
 
             /// Check whether `self` is a proper superset of `other`.
@@ -572,7 +567,7 @@ macro_rules! multiset_simd_array {
             /// ```
             #[inline]
             pub fn is_proper_superset(&self, other: &Self) -> bool {
-                self.is_superset(other) && self.is_any_greater(other)
+                self != other && self.is_superset(other)
             }
 
             /// Check whether any element of `self` is less than an element of `other`.
@@ -633,8 +628,7 @@ macro_rules! multiset_simd_array {
             /// - The implementation uses a horizontal operation on SIMD vectors.
             #[inline]
             pub fn total(&self) -> $scalar {
-                self.fold(<$simd>::ZERO, |acc, vec| acc + vec)
-                    .wrapping_sum()
+                self.fold(<$simd>::ZERO, |acc, vec| acc + vec).wrapping_sum()
             }
 
             /// Returns a tuple containing the (element, corresponding largest counter) in the
@@ -783,15 +777,14 @@ macro_rules! multiset_simd_array {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
 
-                for i in 0..SIZE {
-                    let data = unsafe { self.data.get_unchecked_mut(i) };
+                self.data.iter_mut().enumerate().for_each(|(i, vec)| {
                     if i == array_index {
                         let mask = <$simd_mask>::splat(false).replace(vector_index, true);
-                        *data = mask.select(*data, <$simd>::ZERO)
+                        *vec = mask.select(*vec, <$simd>::ZERO)
                     } else {
-                        *data *= <$scalar>::ZERO
+                        *vec = <$simd>::ZERO
                     }
-                }
+                })
             }
 
             /// Set all element counts, except for a random choice, to zero. The choice is

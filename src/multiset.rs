@@ -182,14 +182,13 @@ impl<N, const SIZE: usize> DivAssign for Multiset<N, SIZE>
     }
 }
 
-impl<N: Copy, const SIZE: usize> Multiset<N, SIZE>
-    where
-{
+impl<N: Copy, const SIZE: usize> Multiset<N, SIZE> {
     #[inline]
     pub(crate) unsafe fn new_uninitialized() -> Self {
         Multiset { data: mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init() }
     }
 
+    // Does not abstract over simd and scalar types.
     #[inline]
     pub(crate) fn fold<Acc, F>(&self, init: Acc, mut f: F) -> Acc
         where
@@ -205,6 +204,7 @@ impl<N: Copy, const SIZE: usize> Multiset<N, SIZE>
         res
     }
 
+    // Does not abstract over simd and scalar types.
     #[inline]
     pub(crate) fn zip_map<N2, N3, F>(&self, other: &Multiset<N2, SIZE>, mut f: F) -> Multiset<N3, SIZE>
         where
@@ -213,13 +213,9 @@ impl<N: Copy, const SIZE: usize> Multiset<N, SIZE>
             F: FnMut(N, N2) -> N3,
     {
         let mut res = unsafe { Multiset::new_uninitialized() };
-        for i in 0..SIZE {
-            unsafe {
-                let e1 = *self.data.get_unchecked(i);
-                let e2 = *other.data.get_unchecked(i);
-                *res.data.get_unchecked_mut(i) = f(e1, e2)
-            }
-        }
+        self.data.iter().zip(other.data.iter()).enumerate().for_each(|(i, (a, b))| unsafe {
+            *res.data.get_unchecked_mut(i) = f(*a, *b)
+        });
         res
     }
 }
