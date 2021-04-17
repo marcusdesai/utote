@@ -19,5 +19,6 @@ impl_small_num!(0, 1, u8::MAX, u8);
 impl_small_num!(0, 1, u16::MAX, u16);
 impl_small_num!(0, 1, u32::MAX, u32);
 impl_small_num!(0, 1, u64::MAX, u64);
+impl_small_num!(0, 1, usize::MAX, usize);
 impl_small_num!(0.0, 1.0, f32::MAX, f32);
 impl_small_num!(0.0, 1.0, f64::MAX, f64);

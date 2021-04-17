@@ -38,8 +38,7 @@ impl<N: PartialEq, const SIZE: usize> PartialEq for Multiset<N, SIZE> {
     }
 }
 
-impl<N, const SIZE: usize> Eq for Multiset<N, SIZE>
-    where Multiset<N, SIZE>: PartialEq, {}
+impl<N: PartialEq, const SIZE: usize> Eq for Multiset<N, SIZE> {}
 
 pub struct MultisetIterator<N, const SIZE: usize> {
     pub(crate) multiset: Multiset<N, SIZE>,

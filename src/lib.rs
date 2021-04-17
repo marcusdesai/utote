@@ -16,7 +16,7 @@ use utote::MSu8;
 let multiset = MSu8::<4>::from_slice(&[1, 3, 5, 7]);
 
 assert_eq!(multiset.total(), 16);
-assert_eq!(multiset.get(1), Some(3));
+assert_eq!(multiset.get(1), Some(&3));
 ```
 
 # Cargo Features
@@ -57,6 +57,11 @@ pub use multiset::*;
 #[macro_use]
 #[allow(unused_macros)]
 mod tests;
+
+mod multiset2;
+pub use multiset2::*;
+mod chunks;
+
 #[macro_use]
 mod common;
 mod small_num;
@@ -66,6 +71,7 @@ pub use scalar::*;
 
 #[cfg(feature = "packed_simd")]
 mod simd;
+
 #[cfg(feature = "packed_simd")]
 pub use simd::*;
 

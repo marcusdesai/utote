@@ -135,7 +135,7 @@ macro_rules! multiset_simd_array {
             /// ```
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self {
-                slice.iter().copied().collect()
+                slice.iter().collect()
             }
 
             /// The number of elements in the multiset.
@@ -181,7 +181,7 @@ macro_rules! multiset_simd_array {
             /// ### Notes:
             /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
-            pub fn contains(self, elem: usize) -> bool {
+            pub fn contains(&self, elem: usize) -> bool {
                 elem < Self::len() && {
                     let array_index = elem / <$simd>::lanes();
                     let vector_index = elem % <$simd>::lanes();
@@ -214,7 +214,7 @@ macro_rules! multiset_simd_array {
             /// Does not run bounds check on whether this element is an index in the underlying
             /// array.
             #[inline]
-            pub unsafe fn contains_unchecked(self, elem: usize) -> bool {
+            pub unsafe fn contains_unchecked(&self, elem: usize) -> bool {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
                 self.data
@@ -340,7 +340,7 @@ macro_rules! multiset_simd_array {
             /// ### Notes:
             /// - The implementation extracts values from the underlying SIMD vector.
             #[inline]
-            pub fn get(self, elem: usize) -> Option<$scalar> {
+            pub fn get(&self, elem: usize) -> Option<$scalar> {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
                 unsafe { self.data.get(array_index).map(|vec| vec.extract_unchecked(vector_index)) }
@@ -365,7 +365,7 @@ macro_rules! multiset_simd_array {
             /// Does not run bounds check on whether this element is an index in the underlying
             /// array.
             #[inline]
-            pub unsafe fn get_unchecked(self, elem: usize) -> $scalar {
+            pub unsafe fn get_unchecked(&self, elem: usize) -> $scalar {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
                 self.data.get_unchecked(array_index).extract_unchecked(vector_index)
@@ -612,6 +612,10 @@ macro_rules! multiset_simd_array {
                     .any(|(s1, s2)| s1.gt(*s2).any())
             }
 
+            // fixme: Total should warn if the len of the multiset > uint size of multiset. This is
+            //  because at that point it will be very easy to add up to a number which is larger
+            //  than the scalar max size. The fact that the SIMD sum is *wrapping* should also be
+            //  made very clear.
             /// The total or cardinality of a multiset is the sum of all its elements member
             /// counts.
             ///
@@ -955,7 +959,7 @@ pub type MSu64x8<const SIZE: usize> = Multiset<u64x8, SIZE>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    tests_x4!(ms2u32x2, u32x2, 2);
-    tests_x8!(ms1u8x8, u8x8, 1);
-    tests_x8!(ms2u32x4, u32x4, 2);
+    tests_x4!(ms2u32x2, Multiset<u32x2, 2>, u32);
+    tests_x8!(ms1u8x8, Multiset<u8x8, 1>, u8);
+    tests_x8!(ms2u32x4, Multiset<u32x4, 2>, u32);
 }

@@ -117,7 +117,7 @@ macro_rules! multiset_scalar_array {
             /// ```
             #[inline]
             pub fn from_slice(slice: &[$scalar]) -> Self {
-                slice.iter().copied().collect()
+                slice.iter().collect()
             }
 
             /// The number of elements in the multiset.
@@ -158,7 +158,7 @@ macro_rules! multiset_scalar_array {
             /// assert_eq!(multiset.contains(5), false);
             /// ```
             #[inline]
-            pub fn contains(self, elem: usize) -> bool {
+            pub fn contains(&self, elem: usize) -> bool {
                 elem < Self::len() && unsafe { self.data.get_unchecked(elem) > &<$scalar>::ZERO }
             }
 
@@ -179,7 +179,7 @@ macro_rules! multiset_scalar_array {
             /// Does not run bounds check on whether this element is an index in the underlying
             /// array.
             #[inline]
-            pub unsafe fn contains_unchecked(self, elem: usize) -> bool {
+            pub unsafe fn contains_unchecked(&self, elem: usize) -> bool {
                 self.data.get_unchecked(elem) > &<$scalar>::ZERO
             }
 
@@ -191,7 +191,7 @@ macro_rules! multiset_scalar_array {
             /// use utote::MSu8;
             /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// multiset.insert(2, 5);
-            /// assert_eq!(multiset.get(2), Some(5));
+            /// assert_eq!(multiset.get(2), Some(&5));
             /// ```
             #[inline]
             pub fn insert(&mut self, elem: usize, amount: $scalar) {
@@ -208,7 +208,7 @@ macro_rules! multiset_scalar_array {
             /// use utote::MSu8;
             /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// unsafe { multiset.insert_unchecked(2, 5) };
-            /// assert_eq!(multiset.get(2), Some(5));
+            /// assert_eq!(multiset.get(2), Some(&5));
             /// // unsafe { multiset.insert_unchecked(5, 10) };  NOT SAFE!!!
             /// ```
             /// 
@@ -228,7 +228,7 @@ macro_rules! multiset_scalar_array {
             /// use utote::MSu8;
             /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// multiset.remove(1);
-            /// assert_eq!(multiset.get(1), Some(0));
+            /// assert_eq!(multiset.get(1), Some(&0));
             /// ```
             #[inline]
             pub fn remove(&mut self, elem: usize) {
@@ -245,7 +245,7 @@ macro_rules! multiset_scalar_array {
             /// use utote::MSu8;
             /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
             /// unsafe { multiset.remove_unchecked(1) };
-            /// assert_eq!(multiset.get(1), Some(0));
+            /// assert_eq!(multiset.get(1), Some(&0));
             /// // unsafe { multiset.remove_unchecked(5) };  NOT SAFE!!!
             /// ```
             ///
@@ -264,13 +264,13 @@ macro_rules! multiset_scalar_array {
             /// ```no_run
             /// use utote::MSu8;
             /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-            /// assert_eq!(multiset.get(1), Some(2));
-            /// assert_eq!(multiset.get(3), Some(0));
+            /// assert_eq!(multiset.get(1), Some(&2));
+            /// assert_eq!(multiset.get(3), Some(&0));
             /// assert_eq!(multiset.get(5), None);
             /// ```
             #[inline]
-            pub fn get(self, elem: usize) -> Option<$scalar> {
-                self.data.get(elem).copied()
+            pub fn get(&self, elem: usize) -> Option<&$scalar> {
+                self.data.get(elem)
             }
 
             /// Returns the amount of an element in the multiset without bounds checks.
@@ -289,7 +289,7 @@ macro_rules! multiset_scalar_array {
             /// Does not run bounds check on whether this element is an index in the underlying
             /// array.
             #[inline]
-            pub unsafe fn get_unchecked(self, elem: usize) -> $scalar {
+            pub unsafe fn get_unchecked(&self, elem: usize) -> $scalar {
                 *self.data.get_unchecked(elem)
             }
 
@@ -781,7 +781,7 @@ pub type MSu64<const SIZE: usize> = Multiset<u64, SIZE>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    tests_x4!(ms4u32, u32, 4);
-    tests_x8!(ms8u16, u16, 8);
-    tests_x4!(ms4u8, u8, 4);
+    tests_x4!(ms4u32, Multiset<u32, 4>, u32);
+    tests_x8!(ms8u16, Multiset<u16, 8>, u16);
+    tests_x4!(ms4u8, Multiset<u8, 4>, u8);
 }
