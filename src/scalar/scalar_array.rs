@@ -211,7 +211,7 @@ macro_rules! multiset_scalar_array {
             /// assert_eq!(multiset.get(2), Some(&5));
             /// // unsafe { multiset.insert_unchecked(5, 10) };  NOT SAFE!!!
             /// ```
-            /// 
+            ///
             /// # Safety
             /// Does not run bounds check on whether this element is an index in the underlying
             /// array.
@@ -717,7 +717,14 @@ macro_rules! multiset_scalar_array {
 }
 
 multiset_scalar_array!(
-    MSu8<SIZE>, u8, MSu16<SIZE>, u16, MSu32<SIZE>, u32, MSu64<SIZE>, u64
+    MSu8<SIZE>,
+    u8,
+    MSu16<SIZE>,
+    u16,
+    MSu32<SIZE>,
+    u32,
+    MSu64<SIZE>,
+    u64
 );
 
 // Any alias where the scalar type can lossless cast to f64 can use this implementation.

@@ -1,7 +1,7 @@
-use std::mem;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::fmt::{Debug, Formatter, Result};
 use std::hash::{Hash, Hasher};
+use std::mem;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Multiset! yay
 pub struct Multiset<N, const SIZE: usize> {
@@ -20,13 +20,17 @@ impl<N: Hash, const SIZE: usize> Hash for Multiset<N, SIZE> {
 
 impl<N: Debug, const SIZE: usize> Debug for Multiset<N, SIZE> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("Multiset").field("data", &self.data).finish()
+        f.debug_struct("Multiset")
+            .field("data", &self.data)
+            .finish()
     }
 }
 
 impl<N: Clone, const SIZE: usize> Clone for Multiset<N, SIZE> {
     fn clone(&self) -> Self {
-        Multiset { data: self.data.clone() }
+        Multiset {
+            data: self.data.clone(),
+        }
     }
 }
 
@@ -46,9 +50,9 @@ pub struct MultisetIterator<N, const SIZE: usize> {
 }
 
 impl<N, const SIZE: usize> Add for Multiset<N, SIZE>
-    where
-        N: Add + Copy,
-        <N as Add>::Output: Copy,
+where
+    N: Add + Copy,
+    <N as Add>::Output: Copy,
 {
     type Output = Multiset<<N as Add>::Output, SIZE>;
 
@@ -66,8 +70,8 @@ impl<N, const SIZE: usize> Add for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> AddAssign for Multiset<N, SIZE>
-    where
-        N: AddAssign + Copy,
+where
+    N: AddAssign + Copy,
 {
     fn add_assign(&mut self, rhs: Self) {
         for i in 0..SIZE {
@@ -80,9 +84,9 @@ impl<N, const SIZE: usize> AddAssign for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> Sub for Multiset<N, SIZE>
-    where
-        N: Sub + Copy,
-        <N as Sub>::Output: Copy,
+where
+    N: Sub + Copy,
+    <N as Sub>::Output: Copy,
 {
     type Output = Multiset<<N as Sub>::Output, SIZE>;
 
@@ -100,8 +104,8 @@ impl<N, const SIZE: usize> Sub for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> SubAssign for Multiset<N, SIZE>
-    where
-        N: SubAssign + Copy,
+where
+    N: SubAssign + Copy,
 {
     fn sub_assign(&mut self, rhs: Self) {
         for i in 0..SIZE {
@@ -114,9 +118,9 @@ impl<N, const SIZE: usize> SubAssign for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> Mul for Multiset<N, SIZE>
-    where
-        N: Mul + Copy,
-        <N as Mul>::Output: Copy,
+where
+    N: Mul + Copy,
+    <N as Mul>::Output: Copy,
 {
     type Output = Multiset<<N as Mul>::Output, SIZE>;
 
@@ -134,8 +138,8 @@ impl<N, const SIZE: usize> Mul for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> MulAssign for Multiset<N, SIZE>
-    where
-        N: MulAssign + Copy,
+where
+    N: MulAssign + Copy,
 {
     fn mul_assign(&mut self, rhs: Self) {
         for i in 0..SIZE {
@@ -148,9 +152,9 @@ impl<N, const SIZE: usize> MulAssign for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> Div for Multiset<N, SIZE>
-    where
-        N: Div + Copy,
-        <N as Div>::Output: Copy,
+where
+    N: Div + Copy,
+    <N as Div>::Output: Copy,
 {
     type Output = Multiset<<N as Div>::Output, SIZE>;
 
@@ -168,8 +172,8 @@ impl<N, const SIZE: usize> Div for Multiset<N, SIZE>
 }
 
 impl<N, const SIZE: usize> DivAssign for Multiset<N, SIZE>
-    where
-        N: DivAssign + Copy,
+where
+    N: DivAssign + Copy,
 {
     fn div_assign(&mut self, rhs: Self) {
         for i in 0..SIZE {
@@ -184,14 +188,16 @@ impl<N, const SIZE: usize> DivAssign for Multiset<N, SIZE>
 impl<N: Copy, const SIZE: usize> Multiset<N, SIZE> {
     #[inline]
     pub(crate) unsafe fn new_uninitialized() -> Self {
-        Multiset { data: mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init() }
+        Multiset {
+            data: mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init(),
+        }
     }
 
     // Does not abstract over simd and scalar types.
     #[inline]
     pub(crate) fn fold<Acc, F>(&self, init: Acc, mut f: F) -> Acc
-        where
-            F: FnMut(Acc, N) -> Acc,
+    where
+        F: FnMut(Acc, N) -> Acc,
     {
         let mut res = init;
         for i in 0..SIZE {
@@ -205,16 +211,22 @@ impl<N: Copy, const SIZE: usize> Multiset<N, SIZE> {
 
     // Does not abstract over simd and scalar types.
     #[inline]
-    pub(crate) fn zip_map<N2, N3, F>(&self, other: &Multiset<N2, SIZE>, mut f: F) -> Multiset<N3, SIZE>
-        where
-            N2: Copy,
-            N3: Copy,
-            F: FnMut(N, N2) -> N3,
+    pub(crate) fn zip_map<N2, N3, F>(
+        &self,
+        other: &Multiset<N2, SIZE>,
+        mut f: F,
+    ) -> Multiset<N3, SIZE>
+    where
+        N2: Copy,
+        N3: Copy,
+        F: FnMut(N, N2) -> N3,
     {
         let mut res = unsafe { Multiset::new_uninitialized() };
-        self.data.iter().zip(other.data.iter()).enumerate().for_each(|(i, (a, b))| unsafe {
-            *res.data.get_unchecked_mut(i) = f(*a, *b)
-        });
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .enumerate()
+            .for_each(|(i, (a, b))| unsafe { *res.data.get_unchecked_mut(i) = f(*a, *b) });
         res
     }
 }

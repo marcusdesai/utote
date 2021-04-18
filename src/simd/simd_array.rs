@@ -63,7 +63,7 @@ macro_rules! multiset_simd_array {
             fn into_iter(self) -> Self::IntoIter {
                 MultisetIterator {
                     multiset: self,
-                    index: 0
+                    index: 0,
                 }
             }
         }
@@ -78,7 +78,8 @@ macro_rules! multiset_simd_array {
                     let array_index = self.index / <$simd>::lanes();
                     let vector_index = self.index % <$simd>::lanes();
                     let result = unsafe {
-                        self.multiset.data
+                        self.multiset
+                            .data
                             .get_unchecked(array_index)
                             .extract_unchecked(vector_index)
                     };
@@ -122,7 +123,9 @@ macro_rules! multiset_simd_array {
             /// ```
             #[inline]
             pub const fn repeat(elem: $scalar) -> Self {
-                Multiset { data: [<$simd>::splat(elem); SIZE] }
+                Multiset {
+                    data: [<$simd>::splat(elem); SIZE],
+                }
             }
 
             /// Returns a Multiset from a slice of the given array * SIMD vector size.
@@ -343,7 +346,11 @@ macro_rules! multiset_simd_array {
             pub fn get(&self, elem: usize) -> Option<$scalar> {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
-                unsafe { self.data.get(array_index).map(|vec| vec.extract_unchecked(vector_index)) }
+                unsafe {
+                    self.data
+                        .get(array_index)
+                        .map(|vec| vec.extract_unchecked(vector_index))
+                }
             }
 
             /// Returns the amount of an element in the multiset without bounds checks.
@@ -368,7 +375,9 @@ macro_rules! multiset_simd_array {
             pub unsafe fn get_unchecked(&self, elem: usize) -> $scalar {
                 let array_index = elem / <$simd>::lanes();
                 let vector_index = elem % <$simd>::lanes();
-                self.data.get_unchecked(array_index).extract_unchecked(vector_index)
+                self.data
+                    .get_unchecked(array_index)
+                    .extract_unchecked(vector_index)
             }
 
             /// Returns a multiset which is the intersection of `self` and `other`.
@@ -632,7 +641,8 @@ macro_rules! multiset_simd_array {
             /// - The implementation uses a horizontal operation on SIMD vectors.
             #[inline]
             pub fn total(&self) -> $scalar {
-                self.fold(<$simd>::ZERO, |acc, vec| acc + vec).wrapping_sum()
+                self.fold(<$simd>::ZERO, |acc, vec| acc + vec)
+                    .wrapping_sum()
             }
 
             /// Returns a tuple containing the (element, corresponding largest counter) in the
@@ -812,7 +822,7 @@ macro_rules! multiset_simd_array {
             pub fn choose_random<T: RngCore>(&mut self, rng: &mut T) {
                 let total = self.total();
                 if total == 0 {
-                    return
+                    return;
                 }
                 let choice_value = rng.gen_range(<$scalar>::ONE..=total);
                 let mut vector_index: usize = 0;
@@ -867,9 +877,9 @@ multiset_simd_array!(MSu64x8<SIZE>, u64x8, u64, m64x8);
 macro_rules! multiset_simd_array_stats {
     ($alias:ty, $simd:ty, $scalar:ty, $simd_float:ty) => {
         impl<const SIZE: usize> $alias
-            where
-                f64: From<$scalar>,
-                $simd_float: From<$simd>,
+        where
+            f64: From<$scalar>,
+            $simd_float: From<$simd>,
         {
             /// Calculate the collision entropy of the multiset.
             ///
@@ -921,7 +931,7 @@ macro_rules! multiset_simd_array_stats {
                     .sum()
             }
         }
-    }
+    };
 }
 
 multiset_simd_array_stats!(MSu8x2<SIZE>, u8x2, u8, f64x2);

@@ -1,15 +1,15 @@
-use rand::prelude::*;
-use std::iter::FromIterator;
-use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
-use std::fmt::{Debug, Formatter, Result};
-use std::mem;
-use std::slice::{Iter, IterMut};
 use num_traits::{AsPrimitive, Zero};
+use rand::prelude::*;
+use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter, Result};
+use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
+use std::mem;
 use std::ops::AddAssign;
+use std::slice::{Iter, IterMut};
 
 pub struct Multiset2<N, const SIZE: usize> {
-    data: [N; SIZE]
+    data: [N; SIZE],
 }
 
 impl<N: Hash, const SIZE: usize> Hash for Multiset2<N, SIZE> {
@@ -20,63 +20,72 @@ impl<N: Hash, const SIZE: usize> Hash for Multiset2<N, SIZE> {
 
 impl<N: Debug, const SIZE: usize> Debug for Multiset2<N, SIZE> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("Multiset").field("data", &self.data).finish()
+        f.debug_struct("Multiset")
+            .field("data", &self.data)
+            .finish()
     }
 }
 
 impl<N: Copy, const SIZE: usize> Multiset2<N, SIZE> {
     #[inline]
     pub(crate) unsafe fn new_uninitialized() -> Self {
-        Multiset2 { data: mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init() }
+        Multiset2 {
+            data: mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init(),
+        }
     }
 
     #[inline]
     pub(crate) fn fold<Acc, F>(&self, init: Acc, mut f: F) -> Acc
-        where
-            F: FnMut(Acc, N) -> Acc,
+    where
+        F: FnMut(Acc, N) -> Acc,
     {
         let mut res = init;
-        for i in 0..SIZE {
-            unsafe {
-                let e = *self.data.get_unchecked(i);
-                res = f(res, e)
-            }
+        for e in self.data.iter() {
+            res = f(res, *e)
         }
         res
     }
 
     #[inline]
-    pub(crate) fn zip_map<N2, N3, F>(&self, other: &Multiset2<N2, SIZE>, mut f: F) -> Multiset2<N3, SIZE>
-        where
-            N2: Copy,
-            N3: Copy,
-            F: FnMut(N, N2) -> N3,
+    pub(crate) fn zip_map<N2, N3, F>(
+        &self,
+        other: &Multiset2<N2, SIZE>,
+        mut f: F,
+    ) -> Multiset2<N3, SIZE>
+    where
+        N2: Copy,
+        N3: Copy,
+        F: FnMut(N, N2) -> N3,
     {
         let mut res = unsafe { Multiset2::new_uninitialized() };
-        self.data.iter().zip(other.data.iter()).enumerate().for_each(|(i, (a, b))| unsafe {
-            *res.data.get_unchecked_mut(i) = f(*a, *b)
-        });
+        res.data
+            .iter_mut()
+            .zip(self.data.iter().zip(other.data.iter()))
+            .for_each(|(r, (a, b))| *r = f(*a, *b));
         res
     }
 }
 
 impl<N: Clone, const SIZE: usize> Clone for Multiset2<N, SIZE> {
     fn clone(&self) -> Self {
-        Multiset2 { data: self.data.clone() }
+        Multiset2 {
+            data: self.data.clone(),
+        }
     }
 }
 
 impl<N: Copy, const SIZE: usize> Copy for Multiset2<N, SIZE> {}
 
 impl<N, const SIZE: usize> AddAssign for Multiset2<N, SIZE>
-    where
-        N: AddAssign + Copy,
+where
+    N: AddAssign + Copy,
 {
     fn add_assign(&mut self, rhs: Self) {
         // Safety: `i` will always be in range of `rhs.data`.
-        self.data.iter_mut().enumerate().for_each(|(i, e)| unsafe {
-            *e += *rhs.data.get_unchecked(i)
-        })
+        self.data
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, e)| unsafe { *e += *rhs.data.get_unchecked(i) })
     }
 }
 
@@ -89,36 +98,25 @@ impl<N: PartialEq, const SIZE: usize> PartialEq for Multiset2<N, SIZE> {
 impl<N: PartialEq, const SIZE: usize> Eq for Multiset2<N, SIZE> {}
 
 impl<N: Copy, const SIZE: usize> FromIterator<N> for Multiset2<N, SIZE>
-    where
-        N: Zero
+where
+    N: Zero,
 {
     #[inline]
-    fn from_iter<T: IntoIterator<Item=N>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
         let mut res: Self = unsafe { Multiset2::new_uninitialized() };
-        let mut it = iter.into_iter();
-
-        for i in 0..SIZE {
-            let elem = it.next().unwrap_or(N::zero());
-            unsafe { *res.data.get_unchecked_mut(i) = elem }
-        }
+        let it = iter.into_iter().chain(std::iter::repeat(N::zero()));
+        res.data.iter_mut().zip(it).for_each(|(r, e)| *r = e);
         res
     }
 }
 
 impl<'a, N: 'a + Copy, const SIZE: usize> FromIterator<&'a N> for Multiset2<N, SIZE>
-    where
-        N: Zero
+where
+    N: Zero,
 {
     #[inline]
-    fn from_iter<T: IntoIterator<Item=&'a N>>(iter: T) -> Self {
-        let mut res: Self = unsafe { Multiset2::new_uninitialized() };
-        let mut it = iter.into_iter();
-
-        for i in 0..SIZE {
-            let elem = it.next().copied().unwrap_or(N::zero());
-            unsafe { *res.data.get_unchecked_mut(i) = elem }
-        }
-        res
+    fn from_iter<T: IntoIterator<Item = &'a N>>(iter: T) -> Self {
+        iter.into_iter().copied().collect()
     }
 }
 
@@ -128,11 +126,22 @@ impl<N: PartialOrd + PartialEq, const SIZE: usize> PartialOrd for Multiset2<N, S
         for (e_self, e_other) in self.data.iter().zip(other.data.iter()) {
             match order {
                 Ordering::Equal => {
-                    if e_self < e_other { order = Ordering::Less }
-                    else if e_self > e_other { order = Ordering::Greater }
-                },
-                Ordering::Less => if e_self > e_other { return None },
-                Ordering::Greater => if e_self < e_other { return None },
+                    if e_self < e_other {
+                        order = Ordering::Less
+                    } else if e_self > e_other {
+                        order = Ordering::Greater
+                    }
+                }
+                Ordering::Less => {
+                    if e_self > e_other {
+                        return None;
+                    }
+                }
+                Ordering::Greater => {
+                    if e_self < e_other {
+                        return None;
+                    }
+                }
             }
         }
         Some(order)
@@ -150,7 +159,9 @@ impl<'a, N, const SIZE: usize> IntoIterator for &'a Multiset2<N, SIZE> {
 
 impl<N: Copy + Default, const SIZE: usize> Default for Multiset2<N, SIZE> {
     fn default() -> Self {
-        Multiset2 { data: [N::default(); SIZE] }
+        Multiset2 {
+            data: [N::default(); SIZE],
+        }
     }
 }
 
@@ -192,11 +203,15 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     /// let multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
     /// ```
     #[inline]
-    pub fn from_slice(slice: &[u16]) -> Self { slice.iter().collect() }
+    pub fn from_slice(slice: &[u16]) -> Self {
+        slice.iter().collect()
+    }
 
     /// blah
     #[inline]
-    pub const fn from_array(data: [u16; SIZE]) -> Self { Multiset2 { data } }
+    pub const fn from_array(data: [u16; SIZE]) -> Self {
+        Multiset2 { data }
+    }
 
     /// The number of elements in the multiset.
     ///
@@ -207,7 +222,9 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     /// assert_eq!(MSu8::<4>::len(), 4);
     /// ```
     #[inline]
-    pub const fn len() -> usize { SIZE }
+    pub const fn len() -> usize {
+        SIZE
+    }
 
     /// blah
     #[inline]
@@ -639,7 +656,12 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     #[inline]
     pub fn argmax(&self) -> (usize, u16) {
         // iter cannot be empty, so it's fine to unwrap
-        let (index, max) = self.data.iter().enumerate().max_by_key(|(_, e)| *e).unwrap();
+        let (index, max) = self
+            .data
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, e)| *e)
+            .unwrap();
         (index, *max)
     }
 
@@ -685,7 +707,12 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     #[inline]
     pub fn argmin(&self) -> (usize, u16) {
         // iter cannot be empty, so it's fine to unwrap
-        let (index, min) = self.data.iter().enumerate().min_by_key(|(_, e)| *e).unwrap();
+        let (index, min) = self
+            .data
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, e)| *e)
+            .unwrap();
         (index, *min)
     }
 
@@ -714,7 +741,8 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     /// ```
     #[inline]
     pub fn min(&self) -> u16 {
-        *self.data.iter().min().unwrap()  // iter cannot be empty
+        // iter cannot be empty, so it's fine to unwrap
+        *self.data.iter().min().unwrap()
     }
 
     /// Set all element counts, except for the given `elem`, to zero.
@@ -765,7 +793,7 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
             if acc >= choice_value {
                 // Safety: `i` cannot be outside of `res`.
                 unsafe { *res.get_unchecked_mut(i) = *elem }
-                break
+                break;
             }
         }
         self.data = res
@@ -792,11 +820,13 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     /// ```
     #[inline]
     pub fn collision_entropy(&self) -> f64 {
-        let total: f64 = self.total().as_();  // todo: note use of .as_()
-        -self.fold(0.0, |acc, frequency| {
-            let freq_f64: f64 = frequency.as_();
-            acc + (freq_f64 / total).powf(2.0)
-        }).log2()
+        let total: f64 = self.total().as_(); // todo: note use of .as_()
+        -self
+            .fold(0.0, |acc, frequency| {
+                let freq_f64: f64 = frequency.as_();
+                acc + (freq_f64 / total).powf(2.0)
+            })
+            .log2()
     }
 
     /// Calculate the shannon entropy of the multiset. Uses ln rather than log2.
