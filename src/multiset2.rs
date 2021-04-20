@@ -8,6 +8,8 @@ use std::mem;
 use std::ops::AddAssign;
 use std::slice::{Iter, IterMut};
 
+use crate::chunks::ChunkUtils;
+
 pub struct Multiset2<N, const SIZE: usize> {
     data: [N; SIZE],
 }
@@ -64,6 +66,332 @@ impl<N: Copy, const SIZE: usize> Multiset2<N, SIZE> {
             .for_each(|(r, (a, b))| *r = f(*a, *b));
         res
     }
+
+    /// blah
+    #[inline]
+    pub fn iter(&self) -> Iter<'_, N> {
+        self.data.iter()
+    }
+
+    /// blah
+    #[inline]
+    pub fn iter_mut(&mut self) -> IterMut<'_, N> {
+        self.data.iter_mut()
+    }
+
+    /// Returns a Multiset from a slice of the given array size.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
+    /// ```
+    #[inline]
+    pub fn from_slice(slice: &[N]) -> Self
+    where
+        N: Zero,
+    {
+        slice.iter().collect()
+    }
+
+    /// Sets all element counts in the multiset to zero.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
+    /// multiset.clear();
+    /// assert_eq!(multiset.is_empty(), true);
+    /// ```
+    #[inline]
+    pub fn clear(&mut self)
+    where
+        N: Zero,
+    {
+        self.data = [N::zero(); SIZE]
+    }
+
+    /// Checks that a given element has at least one member in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// assert_eq!(multiset.contains(1), true);
+    /// assert_eq!(multiset.contains(3), false);
+    /// assert_eq!(multiset.contains(5), false);
+    /// ```
+    #[inline]
+    pub fn contains(&self, elem: usize) -> bool
+    where
+        N: Zero + PartialOrd,
+    {
+        // Safety: trivially guaranteed by bounds check on `elem` param.
+        elem < SIZE && unsafe { self.data.get_unchecked(elem) > &N::zero() }
+    }
+
+    /// Checks that a given element has at least one member in the multiset without bounds
+    /// checks.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
+    /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
+    /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
+    /// ```
+    ///
+    /// # Safety
+    /// Does not run bounds check on whether this element is an index in the underlying
+    /// array.
+    #[inline]
+    pub unsafe fn contains_unchecked(&self, elem: usize) -> bool
+    where
+        N: Zero + PartialOrd,
+    {
+        self.data.get_unchecked(elem) > &N::zero()
+    }
+
+    /// Set the counter of an element in the multiset to `amount`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// multiset.insert(2, 5);
+    /// assert_eq!(multiset.get(2), Some(&5));
+    /// ```
+    #[inline]
+    pub fn insert(&mut self, elem: usize, amount: N) {
+        if elem < SIZE {
+            unsafe { *self.data.get_unchecked_mut(elem) = amount };
+        }
+    }
+
+    /// Set the counter of an element in the multiset to `amount` without bounds checks.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// unsafe { multiset.insert_unchecked(2, 5) };
+    /// assert_eq!(multiset.get(2), Some(&5));
+    /// // unsafe { multiset.insert_unchecked(5, 10) };  NOT SAFE!!!
+    /// ```
+    ///
+    /// # Safety
+    /// Does not run bounds check on whether this element is an index in the underlying
+    /// array.
+    #[inline]
+    pub unsafe fn insert_unchecked(&mut self, elem: usize, amount: N) {
+        *self.data.get_unchecked_mut(elem) = amount
+    }
+
+    /// Set the counter of an element in the multiset to zero.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// multiset.remove(1);
+    /// assert_eq!(multiset.get(1), Some(&0));
+    /// ```
+    #[inline]
+    pub fn remove(&mut self, elem: usize)
+    where
+        N: Zero,
+    {
+        if elem < SIZE {
+            unsafe { *self.data.get_unchecked_mut(elem) = N::zero() };
+        }
+    }
+
+    /// Set the counter of an element in the multiset to zero without bounds checks.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// unsafe { multiset.remove_unchecked(1) };
+    /// assert_eq!(multiset.get(1), Some(&0));
+    /// // unsafe { multiset.remove_unchecked(5) };  NOT SAFE!!!
+    /// ```
+    ///
+    /// # Safety
+    /// Does not run bounds check on whether this element is an index in the underlying
+    /// array.
+    #[inline]
+    pub unsafe fn remove_unchecked(&mut self, elem: usize)
+    where
+        N: Zero,
+    {
+        *self.data.get_unchecked_mut(elem) = N::zero()
+    }
+
+    /// Returns the amount of an element in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// assert_eq!(multiset.get(1), Some(&2));
+    /// assert_eq!(multiset.get(3), Some(&0));
+    /// assert_eq!(multiset.get(5), None);
+    /// ```
+    #[inline]
+    pub fn get(&self, elem: usize) -> Option<&N> {
+        self.data.get(elem)
+    }
+
+    /// Returns the amount of an element in the multiset without bounds checks.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+    /// assert_eq!(unsafe { multiset.get_unchecked(1) }, 2);
+    /// assert_eq!(unsafe { multiset.get_unchecked(3) }, 0);
+    /// // unsafe { multiset.get_unchecked(5) };  NOT SAFE!!!
+    /// ```
+    ///
+    /// # Safety
+    /// Does not run bounds check on whether this element is an index in the underlying
+    /// array.
+    #[inline]
+    pub unsafe fn get_unchecked(&self, elem: usize) -> N {
+        *self.data.get_unchecked(elem)
+    }
+
+    /// Returns a tuple containing the (element, corresponding largest counter) in the
+    /// multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// assert_eq!(multiset.argmax(), (2, 5));
+    /// ```
+    #[inline]
+    pub fn argmax(&self) -> (usize, N)
+    where
+        N: Ord,
+    {
+        // iter cannot be empty, so it's fine to unwrap
+        let (index, max) = self
+            .data
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, e)| *e)
+            .unwrap();
+        (index, *max)
+    }
+
+    /// Returns the element with the largest count in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// assert_eq!(multiset.imax(), 2);
+    /// ```
+    #[inline]
+    pub fn imax(&self) -> usize
+    where
+        N: Ord,
+    {
+        self.argmax().0
+    }
+
+    /// Returns the largest counter in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// assert_eq!(multiset.max(), 5);
+    /// ```
+    #[inline]
+    pub fn max(&self) -> N
+    where
+        N: Ord,
+    {
+        // iter cannot be empty, so it's fine to unwrap
+        *self.data.iter().max().unwrap()
+    }
+
+    /// Returns a tuple containing the (element, corresponding smallest counter) in
+    /// the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// assert_eq!(multiset.argmin(), (1, 0));
+    /// ```
+    #[inline]
+    pub fn argmin(&self) -> (usize, N)
+    where
+        N: Ord,
+    {
+        // iter cannot be empty, so it's fine to unwrap
+        let (index, min) = self
+            .data
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, e)| *e)
+            .unwrap();
+        (index, *min)
+    }
+
+    /// Returns the element with the smallest count in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// assert_eq!(multiset.imin(), 1);
+    /// ```
+    #[inline]
+    pub fn imin(&self) -> usize
+    where
+        N: Ord,
+    {
+        self.argmin().0
+    }
+
+    /// Returns the smallest counter in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// assert_eq!(multiset.min(), 0);
+    /// ```
+    #[inline]
+    pub fn min(&self) -> N
+    where
+        N: Ord,
+    {
+        // iter cannot be empty, so it's fine to unwrap
+        *self.data.iter().min().unwrap()
+    }
 }
 
 impl<N: Clone, const SIZE: usize> Clone for Multiset2<N, SIZE> {
@@ -80,16 +408,17 @@ impl<N, const SIZE: usize> AddAssign for Multiset2<N, SIZE>
 where
     N: AddAssign + Copy,
 {
+    // todo: use SIMD
     fn add_assign(&mut self, rhs: Self) {
-        // Safety: `i` will always be in range of `rhs.data`.
         self.data
             .iter_mut()
-            .enumerate()
-            .for_each(|(i, e)| unsafe { *e += *rhs.data.get_unchecked(i) })
+            .zip(rhs.data.iter())
+            .for_each(|(l, r)| *l += *r);
     }
 }
 
 impl<N: PartialEq, const SIZE: usize> PartialEq for Multiset2<N, SIZE> {
+    // todo: use SIMD
     fn eq(&self, other: &Self) -> bool {
         self.data == other.data
     }
@@ -165,6 +494,7 @@ impl<N: Copy + Default, const SIZE: usize> Default for Multiset2<N, SIZE> {
     }
 }
 
+// These functions cannot be generic on stable, but will not have SIMD implementations
 impl<const SIZE: usize> Multiset2<u16, SIZE> {
     pub const SIZE: usize = SIZE;
 
@@ -194,25 +524,13 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
         Multiset2 { data: [elem; SIZE] }
     }
 
-    /// Returns a Multiset from a slice of the given array size.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
-    /// ```
-    #[inline]
-    pub fn from_slice(slice: &[u16]) -> Self {
-        slice.iter().collect()
-    }
-
     /// blah
     #[inline]
     pub const fn from_array(data: [u16; SIZE]) -> Self {
         Multiset2 { data }
     }
 
+    // todo: deprecate len
     /// The number of elements in the multiset.
     ///
     /// # Examples
@@ -225,180 +543,92 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     pub const fn len() -> usize {
         SIZE
     }
+}
 
-    /// blah
+use packed_simd::{u16x8, u16x16};
+use lazy_static::lazy_static;
+
+enum CPUFeature {
+    AVX2,
+    AVX,
+    SSE42,
+    SSE2,
+    DEF
+}
+
+impl CPUFeature {
     #[inline]
-    pub fn iter(&self) -> Iter<'_, u16> {
-        self.data.iter()
+    fn val(&self) -> &CPUFeature {
+        &self
     }
+}
 
-    /// blah
-    #[inline]
-    pub fn iter_mut(&mut self) -> IterMut<'_, u16> {
-        self.data.iter_mut()
-    }
+lazy_static! {
+    static ref CPU_FEATURE: CPUFeature = {
+        if is_x86_feature_detected!("avx2") {
+            CPUFeature::AVX2
+        } else if is_x86_feature_detected!("avx") {
+            CPUFeature::AVX
+        } else if is_x86_feature_detected!("sse4.2") {
+            CPUFeature::SSE42
+        } else if is_x86_feature_detected!("sse2") {
+            CPUFeature::SSE2
+        } else {
+            CPUFeature::DEF
+        }
+    };
+}
 
-    /// Sets all element counts in the multiset to zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 3, 4]);
-    /// multiset.clear();
-    /// assert_eq!(multiset.is_empty(), true);
-    /// ```
-    #[inline]
-    pub fn clear(&mut self) {
-        self.data = [0; SIZE]
-    }
-
-    /// Checks that a given element has at least one member in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// assert_eq!(multiset.contains(1), true);
-    /// assert_eq!(multiset.contains(3), false);
-    /// assert_eq!(multiset.contains(5), false);
-    /// ```
-    #[inline]
-    pub fn contains(&self, elem: usize) -> bool {
-        // Safety: trivially guaranteed by bounds check on `elem` param.
-        elem < SIZE && unsafe { self.data.get_unchecked(elem) > &0 }
-    }
-
-    /// Checks that a given element has at least one member in the multiset without bounds
-    /// checks.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// assert_eq!(unsafe { multiset.contains_unchecked(1) }, true);
-    /// assert_eq!(unsafe { multiset.contains_unchecked(3) }, false);
-    /// // unsafe { multiset.contains_unchecked(5) };  NOT SAFE!!!
-    /// ```
-    ///
-    /// # Safety
-    /// Does not run bounds check on whether this element is an index in the underlying
-    /// array.
-    #[inline]
-    pub unsafe fn contains_unchecked(&self, elem: usize) -> bool {
-        self.data.get_unchecked(elem) > &0
-    }
-
-    /// Set the counter of an element in the multiset to `amount`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// multiset.insert(2, 5);
-    /// assert_eq!(multiset.get(2), Some(&5));
-    /// ```
-    #[inline]
-    pub fn insert(&mut self, elem: usize, amount: u16) {
-        if elem < SIZE {
-            unsafe { *self.data.get_unchecked_mut(elem) = amount };
+macro_rules! intersection_simd {
+    ($name:ident, $simd:ty, $lanes:expr) => {
+        #[inline]
+        unsafe fn $name(&self, other: &Self) -> Self {
+            let data = self.data.zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.min(simd_b).write_to_slice_unaligned_unchecked(out);
+            });
+            Multiset2 { data }
         }
     }
+}
 
-    /// Set the counter of an element in the multiset to `amount` without bounds checks.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// unsafe { multiset.insert_unchecked(2, 5) };
-    /// assert_eq!(multiset.get(2), Some(&5));
-    /// // unsafe { multiset.insert_unchecked(5, 10) };  NOT SAFE!!!
-    /// ```
-    ///
-    /// # Safety
-    /// Does not run bounds check on whether this element is an index in the underlying
-    /// array.
-    #[inline]
-    pub unsafe fn insert_unchecked(&mut self, elem: usize, amount: u16) {
-        *self.data.get_unchecked_mut(elem) = amount
-    }
-
-    /// Set the counter of an element in the multiset to zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// multiset.remove(1);
-    /// assert_eq!(multiset.get(1), Some(&0));
-    /// ```
-    #[inline]
-    pub fn remove(&mut self, elem: usize) {
-        if elem < SIZE {
-            unsafe { *self.data.get_unchecked_mut(elem) = 0 };
+macro_rules! union_simd {
+    ($name:ident, $simd:ty, $lanes:expr) => {
+        #[inline]
+        unsafe fn $name(&self, other: &Self) -> Self {
+            let data = self.data.zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.max(simd_b).write_to_slice_unaligned_unchecked(out);
+            });
+            Multiset2 { data }
         }
     }
+}
 
-    /// Set the counter of an element in the multiset to zero without bounds checks.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let mut multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// unsafe { multiset.remove_unchecked(1) };
-    /// assert_eq!(multiset.get(1), Some(&0));
-    /// // unsafe { multiset.remove_unchecked(5) };  NOT SAFE!!!
-    /// ```
-    ///
-    /// # Safety
-    /// Does not run bounds check on whether this element is an index in the underlying
-    /// array.
-    #[inline]
-    pub unsafe fn remove_unchecked(&mut self, elem: usize) {
-        *self.data.get_unchecked_mut(elem) = 0
-    }
+// SIMD implementations will go in this impl block for now
+impl<const SIZE: usize> Multiset2<u16, SIZE> {
 
-    /// Returns the amount of an element in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// assert_eq!(multiset.get(1), Some(&2));
-    /// assert_eq!(multiset.get(3), Some(&0));
-    /// assert_eq!(multiset.get(5), None);
-    /// ```
-    #[inline]
-    pub fn get(&self, elem: usize) -> Option<&u16> {
-        self.data.get(elem)
-    }
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx2,fma")]
+    intersection_simd!(_intersection_avx2, u16x16, 16);
 
-    /// Returns the amount of an element in the multiset without bounds checks.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// assert_eq!(unsafe { multiset.get_unchecked(1) }, 2);
-    /// assert_eq!(unsafe { multiset.get_unchecked(3) }, 0);
-    /// // unsafe { multiset.get_unchecked(5) };  NOT SAFE!!!
-    /// ```
-    ///
-    /// # Safety
-    /// Does not run bounds check on whether this element is an index in the underlying
-    /// array.
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx")]
+    intersection_simd!(_intersection_avx, u16x16, 16);
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "sse4.2")]
+    intersection_simd!(_intersection_sse42, u16x8, 8);
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "sse2")]
+    intersection_simd!(_intersection_sse2, u16x8, 8);
+
     #[inline]
-    pub unsafe fn get_unchecked(&self, elem: usize) -> u16 {
-        *self.data.get_unchecked(elem)
+    fn _intersection_default(&self, other: &Self) -> Self {
+        self.zip_map(other, |s1, s2| s1.min(s2))
     }
 
     /// Returns a multiset which is the intersection of `self` and `other`.
@@ -417,7 +647,36 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     /// ```
     #[inline]
     pub fn intersection(&self, other: &Self) -> Self {
-        self.zip_map(other, |s1, s2| s1.min(s2))
+        unsafe {
+            match CPU_FEATURE.val() {
+                CPUFeature::AVX2 => self._intersection_avx2(other),
+                CPUFeature::AVX => self._intersection_avx(other),
+                CPUFeature::SSE42 => self._intersection_sse42(other),
+                CPUFeature::SSE2 => self._intersection_sse2(other),
+                CPUFeature::DEF => self._intersection_default(other),
+            }
+        }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx2,fma")]
+    union_simd!(_union_avx2, u16x16, 16);
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx")]
+    union_simd!(_union_avx, u16x16, 16);
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "sse4.2")]
+    union_simd!(_union_sse42, u16x8, 8);
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "sse2")]
+    union_simd!(_union_sse2, u16x8, 8);
+
+    #[inline]
+    fn _union_default(&self, other: &Self) -> Self {
+        self.zip_map(other, |s1, s2| s1.max(s2))
     }
 
     /// Returns a multiset which is the union of `self` and `other`.
@@ -436,7 +695,15 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
     /// ```
     #[inline]
     pub fn union(&self, other: &Self) -> Self {
-        self.zip_map(other, |s1, s2| s1.max(s2))
+        unsafe {
+            match CPU_FEATURE.val() {
+                CPUFeature::AVX2 => self._union_avx2(other),
+                CPUFeature::AVX => self._union_avx(other),
+                CPUFeature::SSE42 => self._union_sse42(other),
+                CPUFeature::SSE2 => self._union_sse2(other),
+                CPUFeature::DEF => self._union_default(other),
+            }
+        }
     }
 
     /// Return the number of elements whose counter is zero.
@@ -643,108 +910,6 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
         self.data.iter().map(|e| *e as usize).sum()
     }
 
-    /// Returns a tuple containing the (element, corresponding largest counter) in the
-    /// multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// assert_eq!(multiset.argmax(), (2, 5));
-    /// ```
-    #[inline]
-    pub fn argmax(&self) -> (usize, u16) {
-        // iter cannot be empty, so it's fine to unwrap
-        let (index, max) = self
-            .data
-            .iter()
-            .enumerate()
-            .max_by_key(|(_, e)| *e)
-            .unwrap();
-        (index, *max)
-    }
-
-    /// Returns the element with the largest count in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// assert_eq!(multiset.imax(), 2);
-    /// ```
-    #[inline]
-    pub fn imax(&self) -> usize {
-        self.argmax().0
-    }
-
-    /// Returns the largest counter in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// assert_eq!(multiset.max(), 5);
-    /// ```
-    #[inline]
-    pub fn max(&self) -> u16 {
-        // iter cannot be empty, so it's fine to unwrap
-        *self.data.iter().max().unwrap()
-    }
-
-    /// Returns a tuple containing the (element, corresponding smallest counter) in
-    /// the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// assert_eq!(multiset.argmin(), (1, 0));
-    /// ```
-    #[inline]
-    pub fn argmin(&self) -> (usize, u16) {
-        // iter cannot be empty, so it's fine to unwrap
-        let (index, min) = self
-            .data
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, e)| *e)
-            .unwrap();
-        (index, *min)
-    }
-
-    /// Returns the element with the smallest count in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// assert_eq!(multiset.imin(), 1);
-    /// ```
-    #[inline]
-    pub fn imin(&self) -> usize {
-        self.argmin().0
-    }
-
-    /// Returns the smallest counter in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// assert_eq!(multiset.min(), 0);
-    /// ```
-    #[inline]
-    pub fn min(&self) -> u16 {
-        // iter cannot be empty, so it's fine to unwrap
-        *self.data.iter().min().unwrap()
-    }
-
     /// Set all element counts, except for the given `elem`, to zero.
     ///
     /// # Examples
@@ -798,9 +963,7 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
         }
         self.data = res
     }
-}
 
-impl<const SIZE: usize> Multiset2<u16, SIZE> {
     // todo: mention use of .as_() in changelog, important 1.45 potential break
     /// Calculate the collision entropy of the multiset.
     ///

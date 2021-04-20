@@ -148,6 +148,12 @@ trait SliceChunkUtils<T> {
     fn zip_map_chunks_exact<F, const C: usize>(&self, other: &Self, out: &mut Self, f: F)
     where
         F: FnMut(&[T], &[T], &mut [T]);
+    fn zip_map_chunks_mut_remainder<F, const C: usize>(&mut self, other: &Self, f: F)
+    where
+        F: FnMut(&mut [T], &[T]);
+    fn zip_map_chunks_mut_exact<F, const C: usize>(&mut self, other: &Self, f: F)
+    where
+        F: FnMut(&mut [T], &[T]);
     fn zip_all_chunks_remainder<F, const C: usize>(&self, other: &Self, f: F) -> bool
     where
         F: Fn(&[T], &[T]) -> bool;
@@ -202,6 +208,30 @@ where
         out.chunks_mut(C)
             .zip(self.chunks(C).zip(other.chunks(C)))
             .for_each(|(r, (a, b))| f(a, b, r));
+    }
+
+    #[inline]
+    fn zip_map_chunks_mut_remainder<F, const C: usize>(&mut self, other: &Self, mut f: F)
+    where
+        F: FnMut(&mut [T], &[T]),
+    {
+        let mut self_chunks = ChunksPadMut::<'_, T, C>::new(self);
+        let other_chunks = ChunksPad::<'_, T, C>::new(other);
+        self_chunks
+            .iter_mut()
+            .zip(other_chunks.iter())
+            .for_each(|(a, b)| f(a, b));
+        self_chunks.remainder_with(|slice| f(slice, other_chunks.remainder()));
+    }
+
+    #[inline]
+    fn zip_map_chunks_mut_exact<F, const C: usize>(&mut self, other: &Self, mut f: F)
+    where
+        F: FnMut(&mut [T], &[T]),
+    {
+        self.chunks_mut(C)
+            .zip(other.chunks(C))
+            .for_each(|(a, b)| f(a, b))
     }
 
     #[inline]
@@ -338,6 +368,38 @@ mod test_slice_chunk_utils {
     }
 
     #[test]
+    fn test_zip_map_chunks_mut_remainder() {
+        const CHUNK: usize = 2;
+        let mut this: [u16; 5] = [1, 2, 3, 4, 5];
+        let other = [1, 1, 1, 1, 1];
+
+        this.zip_map_chunks_mut_remainder::<_, CHUNK>(&other, |slice_this, slice_other| {
+            slice_this
+                .iter_mut()
+                .zip(slice_other.iter())
+                .for_each(|(a, b)| *a += b);
+        });
+
+        assert_eq!(this, [2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn test_zip_map_chunks_mut_exact() {
+        const CHUNK: usize = 2;
+        let mut this: [u16; 4] = [1, 2, 3, 4];
+        let other = [1, 1, 1, 1];
+
+        this.zip_map_chunks_mut_exact::<_, CHUNK>(&other, |slice_this, slice_other| {
+            slice_this
+                .iter_mut()
+                .zip(slice_other.iter())
+                .for_each(|(a, b)| *a += b);
+        });
+
+        assert_eq!(this, [2, 3, 4, 5]);
+    }
+
+    #[test]
     fn test_zip_all_chunks_remainder() {
         const CHUNK: usize = 2;
         let this: [u16; 5] = [1, 2, 3, 4, 5];
@@ -449,6 +511,9 @@ pub(crate) trait ChunkUtils<T> {
     fn zip_map_chunks<F, const C: usize>(&self, other: &Self, f: F) -> Self
     where
         F: FnMut(&[T], &[T], &mut [T]);
+    fn zip_map_chunks_mut<F, const C: usize>(&mut self, other: &Self, f: F)
+    where
+        F: FnMut(&mut [T], &[T]);
     fn zip_all_chunks<F, const C: usize>(&self, other: &Self, f: F) -> bool
     where
         F: Fn(&[T], &[T]) -> bool;
@@ -481,6 +546,18 @@ where
             self.zip_map_chunks_remainder::<F, C>(other, &mut out, f)
         }
         out
+    }
+
+    #[inline]
+    fn zip_map_chunks_mut<F, const C: usize>(&mut self, other: &Self, f: F)
+    where
+        F: FnMut(&mut [T], &[T]),
+    {
+        if SIZE % C == 0 {
+            self.zip_map_chunks_mut_remainder::<F, C>(other, f)
+        } else {
+            self.zip_map_chunks_mut_exact::<F, C>(other, f)
+        }
     }
 
     #[inline]
@@ -551,6 +628,18 @@ where
             self.zip_map_chunks_remainder::<F, C>(other, &mut out, f)
         }
         out
+    }
+
+    #[inline]
+    fn zip_map_chunks_mut<F, const C: usize>(&mut self, other: &Self, f: F)
+    where
+        F: FnMut(&mut [T], &[T]),
+    {
+        if self.len() % C == 0 {
+            self.zip_map_chunks_mut_remainder::<F, C>(other, f)
+        } else {
+            self.zip_map_chunks_mut_exact::<F, C>(other, f)
+        }
     }
 
     #[inline]
