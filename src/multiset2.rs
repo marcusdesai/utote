@@ -1,4 +1,5 @@
 use num_traits::{AsPrimitive, Zero};
+use paste::paste;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter, Result};
@@ -9,7 +10,9 @@ use std::ops::AddAssign;
 use std::slice::{Iter, IterMut};
 
 use crate::chunks::ChunkUtils;
+use crate::small_num::SmallNumConsts;
 
+#[repr(transparent)]
 pub struct Multiset2<N, const SIZE: usize> {
     data: [N; SIZE],
 }
@@ -25,6 +28,30 @@ impl<N: Debug, const SIZE: usize> Debug for Multiset2<N, SIZE> {
         f.debug_struct("Multiset")
             .field("data", &self.data)
             .finish()
+    }
+}
+
+impl<N, const SIZE: usize> Multiset2<N, SIZE> {
+    pub const SIZE: usize = SIZE;
+
+    /// blah
+    #[inline]
+    pub const fn from_array(data: [N; SIZE]) -> Self {
+        Multiset2 { data }
+    }
+
+    // todo: deprecate len
+    /// The number of elements in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// assert_eq!(MSu8::<4>::len(), 4);
+    /// ```
+    #[inline]
+    pub const fn len() -> usize {
+        SIZE
     }
 }
 
@@ -65,6 +92,37 @@ impl<N: Copy, const SIZE: usize> Multiset2<N, SIZE> {
             .zip(self.data.iter().zip(other.data.iter()))
             .for_each(|(r, (a, b))| *r = f(*a, *b));
         res
+    }
+
+    /// Returns a Multiset of the given array size with all elements set to zero.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::empty();
+    /// ```
+    #[inline]
+    pub fn empty() -> Self
+    where
+        N: Zero,
+    {
+        Multiset2 {
+            data: [N::zero(); SIZE],
+        }
+    }
+
+    /// Returns a Multiset of the given array size with all elements set to `elem`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::repeat(5);
+    /// ```
+    #[inline]
+    pub fn repeat(elem: N) -> Self {
+        Multiset2 { data: [elem; SIZE] }
     }
 
     /// blah
@@ -273,6 +331,24 @@ impl<N: Copy, const SIZE: usize> Multiset2<N, SIZE> {
         *self.data.get_unchecked(elem)
     }
 
+    /// Check whether all elements have a count of zero.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let multiset = MSu8::<4>::from_slice(&[0, 0, 0, 0]);
+    /// assert_eq!(multiset.is_empty(), true);
+    /// assert_eq!(MSu8::<4>::empty().is_empty(), true);
+    /// ```
+    #[inline]
+    pub fn is_empty(&self) -> bool
+    where
+        N: PartialEq + Zero,
+    {
+        self.data == [N::zero(); SIZE]
+    }
+
     /// Returns a tuple containing the (element, corresponding largest counter) in the
     /// multiset.
     ///
@@ -392,13 +468,34 @@ impl<N: Copy, const SIZE: usize> Multiset2<N, SIZE> {
         // iter cannot be empty, so it's fine to unwrap
         *self.data.iter().min().unwrap()
     }
+
+    /// Set all element counts, except for the given `elem`, to zero.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::MSu8;
+    /// let mut multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
+    /// multiset.choose(2);
+    /// let result = MSu8::<4>::from_slice(&[0, 0, 5, 0]);
+    /// assert_eq!(multiset, result);
+    /// ```
+    #[inline]
+    pub fn choose(&mut self, elem: usize)
+    where
+        N: Zero,
+    {
+        let mut res = [N::zero(); SIZE];
+        if elem < SIZE {
+            unsafe { *res.get_unchecked_mut(elem) = *self.data.get_unchecked(elem) };
+        }
+        self.data = res
+    }
 }
 
-impl<N: Clone, const SIZE: usize> Clone for Multiset2<N, SIZE> {
+impl<N: Copy, const SIZE: usize> Clone for Multiset2<N, SIZE> {
     fn clone(&self) -> Self {
-        Multiset2 {
-            data: self.data.clone(),
-        }
+        *self
     }
 }
 
@@ -418,7 +515,7 @@ where
 }
 
 impl<N: PartialEq, const SIZE: usize> PartialEq for Multiset2<N, SIZE> {
-    // todo: use SIMD
+    // Array compare will always use memcmp because N will be a unit, so no need for SIMD
     fn eq(&self, other: &Self) -> bool {
         self.data == other.data
     }
@@ -494,66 +591,14 @@ impl<N: Copy + Default, const SIZE: usize> Default for Multiset2<N, SIZE> {
     }
 }
 
-// These functions cannot be generic on stable, but will not have SIMD implementations
-impl<const SIZE: usize> Multiset2<u16, SIZE> {
-    pub const SIZE: usize = SIZE;
-
-    /// Returns a Multiset of the given array size with all elements set to zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::empty();
-    /// ```
-    #[inline]
-    pub const fn empty() -> Self {
-        Multiset2 { data: [0; SIZE] }
-    }
-
-    /// Returns a Multiset of the given array size with all elements set to `elem`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::repeat(5);
-    /// ```
-    #[inline]
-    pub const fn repeat(elem: u16) -> Self {
-        Multiset2 { data: [elem; SIZE] }
-    }
-
-    /// blah
-    #[inline]
-    pub const fn from_array(data: [u16; SIZE]) -> Self {
-        Multiset2 { data }
-    }
-
-    // todo: deprecate len
-    /// The number of elements in the multiset.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// assert_eq!(MSu8::<4>::len(), 4);
-    /// ```
-    #[inline]
-    pub const fn len() -> usize {
-        SIZE
-    }
-}
-
-use packed_simd::{u16x8, u16x16};
 use lazy_static::lazy_static;
+use packed_simd::*;
 
 enum CPUFeature {
     AVX2,
     AVX,
     SSE42,
-    SSE2,
-    DEF
+    DEF,
 }
 
 impl CPUFeature {
@@ -571,182 +616,205 @@ lazy_static! {
             CPUFeature::AVX
         } else if is_x86_feature_detected!("sse4.2") {
             CPUFeature::SSE42
-        } else if is_x86_feature_detected!("sse2") {
-            CPUFeature::SSE2
         } else {
             CPUFeature::DEF
         }
     };
 }
 
+macro_rules! simd_variants {
+    ($name:ty, $fn_macro:ident, $lanes128:expr, $lanes256:expr, $simd128:ty, $simd256:ty
+    $(, $simd_f128:ty, $simd_f256:ty, $simd_m128:ty, $simd_m256:ty)*) => {
+        paste! {
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            #[target_feature(enable = "avx2,fma")]
+            $fn_macro! { [<_ $name _avx2>], $simd256, $lanes256 $(, $simd_f256, $simd_m256)* }
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            #[target_feature(enable = "avx")]
+            $fn_macro! { [<_ $name _avx>], $simd256, $lanes256 $(, $simd_f256, $simd_m256)* }
+
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            #[target_feature(enable = "sse4.2")]
+            $fn_macro! { [<_ $name _sse42>], $simd128, $lanes128 $(, $simd_f128, $simd_m128)* }
+        }
+    };
+}
+
+macro_rules! simd_dispatch {
+    ($(#[$outer:meta])*
+    pub fn $name:ident (&self $(, $arg:ident: $typ:ty)*) -> $ret:ty; default = $def:ident) => {
+        paste! {
+            $(#[$outer])*
+            #[inline]
+            pub fn $name(&self, $($arg: $typ),*) -> $ret {
+                unsafe {
+                    match CPU_FEATURE.val() {
+                        CPUFeature::AVX2 => self.[<_ $name _avx2>]($($arg),*),
+                        CPUFeature::AVX => self.[<_ $name _avx>]($($arg),*),
+                        CPUFeature::SSE42 => self.[<_ $name _sse42>]($($arg),*),
+                        CPUFeature::DEF => self.$def($($arg),*),
+                    }
+                }
+            }
+        }
+    };
+}
+
 macro_rules! intersection_simd {
     ($name:ident, $simd:ty, $lanes:expr) => {
+        #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> Self {
-            let data = self.data.zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
-                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                simd_a.min(simd_b).write_to_slice_unaligned_unchecked(out);
-            });
+            let data = self
+                .data
+                .zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
+                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                    simd_a.min(simd_b).write_to_slice_unaligned_unchecked(out);
+                });
             Multiset2 { data }
         }
-    }
+    };
 }
 
 macro_rules! union_simd {
     ($name:ident, $simd:ty, $lanes:expr) => {
+        #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> Self {
-            let data = self.data.zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
-                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                simd_a.max(simd_b).write_to_slice_unaligned_unchecked(out);
-            });
+            let data = self
+                .data
+                .zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
+                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                    simd_a.max(simd_b).write_to_slice_unaligned_unchecked(out);
+                });
             Multiset2 { data }
         }
-    }
+    };
+}
+
+macro_rules! count_zero_simd {
+    ($name:ident, $simd:ty, $lanes:expr) => {
+        #[doc(hidden)]
+        #[inline]
+        unsafe fn $name(&self) -> usize {
+            SIZE - self.data.fold_chunks::<_, _, $lanes>(0, |acc, slice| {
+                let vec = <$simd>::from_slice_unaligned_unchecked(slice);
+                acc + vec.gt(<$simd>::ZERO).bitmask().count_ones() as usize
+            })
+        }
+    };
+}
+
+macro_rules! count_non_zero_simd {
+    ($name:ident, $simd:ty, $lanes:expr) => {
+        #[doc(hidden)]
+        #[inline]
+        unsafe fn $name(&self) -> usize {
+            self.data.fold_chunks::<_, _, $lanes>(0, |acc, slice| {
+                let vec = <$simd>::from_slice_unaligned_unchecked(slice);
+                acc + vec.gt(<$simd>::ZERO).bitmask().count_ones() as usize
+            })
+        }
+    };
 }
 
 // SIMD implementations will go in this impl block for now
 impl<const SIZE: usize> Multiset2<u16, SIZE> {
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "avx2,fma")]
-    intersection_simd!(_intersection_avx2, u16x16, 16);
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "avx")]
-    intersection_simd!(_intersection_avx, u16x16, 16);
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "sse4.2")]
-    intersection_simd!(_intersection_sse42, u16x8, 8);
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "sse2")]
-    intersection_simd!(_intersection_sse2, u16x8, 8);
-
+    #[doc(hidden)]
     #[inline]
     fn _intersection_default(&self, other: &Self) -> Self {
         self.zip_map(other, |s1, s2| s1.min(s2))
     }
 
-    /// Returns a multiset which is the intersection of `self` and `other`.
-    ///
-    /// The Intersection of two multisets A & B is defined as the multiset C where
-    /// `C[0] == min(A[0], B[0]`).
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// let b = MSu8::<4>::from_slice(&[0, 2, 3, 0]);
-    /// let c = MSu8::<4>::from_slice(&[0, 2, 0, 0]);
-    /// assert_eq!(a.intersection(&b), c);
-    /// ```
-    #[inline]
-    pub fn intersection(&self, other: &Self) -> Self {
-        unsafe {
-            match CPU_FEATURE.val() {
-                CPUFeature::AVX2 => self._intersection_avx2(other),
-                CPUFeature::AVX => self._intersection_avx(other),
-                CPUFeature::SSE42 => self._intersection_sse42(other),
-                CPUFeature::SSE2 => self._intersection_sse2(other),
-                CPUFeature::DEF => self._intersection_default(other),
-            }
-        }
+    simd_variants!(intersection, intersection_simd, 8, 16, u16x8, u16x16);
+    simd_dispatch! {
+        /// Returns a multiset which is the intersection of `self` and `other`.
+        ///
+        /// The Intersection of two multisets A & B is defined as the multiset C where
+        /// `C[0] == min(A[0], B[0])`.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use utote::MSu8;
+        /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+        /// let b = MSu8::<4>::from_slice(&[0, 2, 3, 0]);
+        /// let c = MSu8::<4>::from_slice(&[0, 2, 0, 0]);
+        /// assert_eq!(a.intersection(&b), c);
+        /// ```
+        pub fn intersection(&self, other: &Self) -> Self;
+        default = _intersection_default
     }
 
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "avx2,fma")]
-    union_simd!(_union_avx2, u16x16, 16);
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "avx")]
-    union_simd!(_union_avx, u16x16, 16);
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "sse4.2")]
-    union_simd!(_union_sse42, u16x8, 8);
-
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    #[target_feature(enable = "sse2")]
-    union_simd!(_union_sse2, u16x8, 8);
-
+    #[doc(hidden)]
     #[inline]
     fn _union_default(&self, other: &Self) -> Self {
         self.zip_map(other, |s1, s2| s1.max(s2))
     }
 
-    /// Returns a multiset which is the union of `self` and `other`.
-    ///
-    /// The union of two multisets A & B is defined as the multiset C where
-    /// `C[0] == max(A[0], B[0]`).
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
-    /// let b = MSu8::<4>::from_slice(&[0, 2, 3, 0]);
-    /// let c = MSu8::<4>::from_slice(&[1, 2, 3, 0]);
-    /// assert_eq!(a.union(&b), c);
-    /// ```
-    #[inline]
-    pub fn union(&self, other: &Self) -> Self {
-        unsafe {
-            match CPU_FEATURE.val() {
-                CPUFeature::AVX2 => self._union_avx2(other),
-                CPUFeature::AVX => self._union_avx(other),
-                CPUFeature::SSE42 => self._union_sse42(other),
-                CPUFeature::SSE2 => self._union_sse2(other),
-                CPUFeature::DEF => self._union_default(other),
-            }
-        }
+    simd_variants!(union, union_simd, 8, 16, u16x8, u16x16);
+    simd_dispatch! {
+        /// Returns a multiset which is the union of `self` and `other`.
+        ///
+        /// The union of two multisets A & B is defined as the multiset C where
+        /// `C[0] == max(A[0], B[0])`.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use utote::MSu8;
+        /// let a = MSu8::<4>::from_slice(&[1, 2, 0, 0]);
+        /// let b = MSu8::<4>::from_slice(&[0, 2, 3, 0]);
+        /// let c = MSu8::<4>::from_slice(&[1, 2, 3, 0]);
+        /// assert_eq!(a.union(&b), c);
+        /// ```
+        pub fn union(&self, other: &Self) -> Self;
+        default = _union_default
     }
 
-    /// Return the number of elements whose counter is zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 0, 0, 0]);
-    /// assert_eq!(multiset.count_zero(), 3);
-    /// ```
+    #[doc(hidden)]
     #[inline]
-    pub fn count_zero(&self) -> usize {
+    fn _count_zero_default(&self) -> usize {
         self.fold(SIZE, |acc, elem| acc - elem.min(1) as usize)
     }
 
-    /// Return the number of elements whose counter is non-zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[1, 0, 0, 0]);
-    /// assert_eq!(multiset.count_non_zero(), 1);
-    /// ```
+    simd_variants!(count_zero, count_zero_simd, 8, 16, u16x8, u16x16);
+    simd_dispatch! {
+        /// Return the number of elements whose counter is zero.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use utote::MSu8;
+        /// let multiset = MSu8::<4>::from_slice(&[1, 0, 0, 0]);
+        /// assert_eq!(multiset.count_zero(), 3);
+        /// ```
+        pub fn count_zero(&self) -> usize;
+        default = _count_zero_default
+    }
+
+    #[doc(hidden)]
     #[inline]
-    pub fn count_non_zero(&self) -> usize {
+    pub fn _count_non_zero_default(&self) -> usize {
         self.fold(0, |acc, elem| acc + elem.min(1) as usize)
     }
 
-    /// Check whether all elements have a count of zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let multiset = MSu8::<4>::from_slice(&[0, 0, 0, 0]);
-    /// assert_eq!(multiset.is_empty(), true);
-    /// assert_eq!(MSu8::<4>::empty().is_empty(), true);
-    /// ```
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.data.iter().all(|elem| elem == &0)
+    simd_variants!(count_non_zero, count_non_zero_simd, 8, 16, u16x8, u16x16);
+    simd_dispatch! {
+        /// Return the number of elements whose counter is non-zero.
+        ///
+        /// # Examples
+        ///
+        /// ```no_run
+        /// use utote::MSu8;
+        /// let multiset = MSu8::<4>::from_slice(&[1, 0, 0, 0]);
+        /// assert_eq!(multiset.count_non_zero(), 1);
+        /// ```
+        pub fn count_non_zero(&self) -> usize;
+        default = _count_non_zero_default
     }
 
     /// Check whether only one element has a non-zero count.
@@ -910,26 +978,6 @@ impl<const SIZE: usize> Multiset2<u16, SIZE> {
         self.data.iter().map(|e| *e as usize).sum()
     }
 
-    /// Set all element counts, except for the given `elem`, to zero.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use utote::MSu8;
-    /// let mut multiset = MSu8::<4>::from_slice(&[2, 0, 5, 3]);
-    /// multiset.choose(2);
-    /// let result = MSu8::<4>::from_slice(&[0, 0, 5, 0]);
-    /// assert_eq!(multiset, result);
-    /// ```
-    #[inline]
-    pub fn choose(&mut self, elem: usize) {
-        let mut res = [0; SIZE];
-        if elem < SIZE {
-            unsafe { *res.get_unchecked_mut(elem) = *self.data.get_unchecked(elem) };
-        }
-        self.data = res
-    }
-
     /// Set all element counts, except for a random choice, to zero. The choice is
     /// weighted by the counts of the elements.
     ///
@@ -1023,3 +1071,35 @@ mod tests {
     tests_x4!(multiset2u8_4, Multiset2<u16, 4>, u16);
     tests_x8!(multiset2u8_8, Multiset2<u16, 8>, u16);
 }
+
+// trait SIMDType<N> {
+//     type SIMD128: SIMDFunc<N> + Add<N>;
+//     type SIMD256: SIMDFunc<N> + Add<N>;
+// }
+//
+// impl SIMDType<u16> for u16 {
+//     type SIMD128 = u16x8;
+//     type SIMD256 = u16x16;
+// }
+//
+// trait SIMDFunc<N> {
+//     unsafe fn from_slice_unaligned_unchecked(t: &[N]) -> Self;
+// }
+//
+// impl SIMDFunc<u16> for u16x8 {
+//     unsafe fn from_slice_unaligned_unchecked(t: &[u16]) -> Self {
+//         u16x8::from_slice_unaligned_unchecked(t)
+//     }
+// }
+//
+// impl SIMDFunc<u16> for u16x16 {
+//     unsafe fn from_slice_unaligned_unchecked(t: &[u16]) -> Self {
+//         u16x16::from_slice_unaligned_unchecked(t)
+//     }
+// }
+//
+// impl<N: SIMDType<N>, const SIZE: usize> Multiset2<N, SIZE> {
+//     pub fn _d(t: &[N]) {
+//         unsafe { N::SIMD128::from_slice_unaligned_unchecked(t) };
+//     }
+// }

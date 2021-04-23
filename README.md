@@ -2,6 +2,8 @@
 
 [![docs.rs](https://docs.rs/utote/badge.svg)](https://docs.rs/utote)
 [![Crates.io](https://img.shields.io/crates/v/utote.svg)](https://crates.io/crates/utote)
+ 
+*** TODO: add note of minimum supported rust version, perhaps to changelog? ***
 
 Stack allocated uint multiset implementation on rust stable, with optional SIMD implementations available using rust 
 nightly.
