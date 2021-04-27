@@ -1,5 +1,5 @@
 use crate::chunks::ChunkUtils;
-use crate::Multiset2;
+use crate::{Counter, Multiset2};
 use lazy_static::lazy_static;
 use num_traits::AsPrimitive;
 use packed_simd::*;
@@ -7,39 +7,172 @@ use paste::paste;
 #[cfg(feature = "rand")]
 use rand::{Rng, RngCore};
 use std::mem::MaybeUninit;
-// use std::ops::Add;
+use std::ops::{Add, Div};
 
-// trait SIMDType<N> {
-//     type SIMD128: SIMDFunc<N> + Add<N> + Add<Self::SIMD128>;
-//     type SIMD256: SIMDFunc<N> + Add<N> + Add<Self::SIMD256>;
-// }
-//
-// impl SIMDType<u16> for u16 {
-//     type SIMD128 = u16x8;
-//     type SIMD256 = u16x16;
-// }
-//
-// trait SIMDFunc<N> {
-//     unsafe fn from_slice_unaligned_unchecked(t: &[N]) -> Self;
-// }
-//
-// impl SIMDFunc<u16> for u16x8 {
-//     unsafe fn from_slice_unaligned_unchecked(t: &[u16]) -> Self {
-//         u16x8::from_slice_unaligned_unchecked(t)
-//     }
-// }
-//
-// impl SIMDFunc<u16> for u16x16 {
-//     unsafe fn from_slice_unaligned_unchecked(t: &[u16]) -> Self {
-//         u16x16::from_slice_unaligned_unchecked(t)
-//     }
-// }
-//
-// impl<N: SIMDType<N>, const SIZE: usize> Multiset2<N, SIZE> {
-//     pub fn _d(t: &[N]) {
-//         unsafe { N::SIMD128::from_slice_unaligned_unchecked(t) };
-//     }
-// }
+pub trait SimdTypes<N> {
+    type SIMD128: SimdBasic<N> + Add<N> + Add<Self::SIMD128> + Div<N> + Copy + PartialEq;
+    type SIMD256: SimdBasic<N> + Add<N> + Add<Self::SIMD256> + Div<N> + Copy + PartialEq;
+    type SIMDFloat: SimdBasic<f64> + SimdFloat<f64>;
+}
+
+pub trait SimdBool<N> {
+    type Select: SimdBasic<N>;
+    fn all(self) -> bool;
+    fn any(self) -> bool;
+    fn count_true(self) -> usize;
+    fn select(self, a: Self::Select, b: Self::Select) -> Self::Select;
+}
+
+macro_rules! impl_simd_bool {
+    ($scalar:ty, $simd:ty, $simd_bool:ty) => {
+        impl SimdBool<$scalar> for $simd_bool {
+            type Select = $simd;
+
+            #[inline]
+            fn all(self) -> bool {
+                Self::all(self)
+            }
+
+            #[inline]
+            fn any(self) -> bool {
+                Self::any(self)
+            }
+
+            #[inline]
+            fn count_true(self) -> usize {
+                Self::bitmask(self).count_ones() as usize
+            }
+
+            #[inline]
+            fn select(self, a: Self::Select, b: Self::Select) -> Self::Select {
+                Self::select(self, a, b)
+            }
+        }
+    };
+}
+
+impl_simd_bool!(u8, u8x16, m8x16);
+impl_simd_bool!(u8, u8x32, m8x32);
+impl_simd_bool!(u16, u16x8, m16x8);
+impl_simd_bool!(u16, u16x16, m16x16);
+impl_simd_bool!(u32, u32x4, m32x4);
+impl_simd_bool!(u32, u32x8, m32x8);
+impl_simd_bool!(u64, u64x4, m64x4);
+impl_simd_bool!(f64, f64x4, m64x4);
+
+impl SimdTypes<u16> for u16 {
+    type SIMD128 = u16x8;
+    type SIMD256 = u16x16;
+    type SIMDFloat = f64x4;
+}
+
+pub trait SimdBasic<N> {
+    type SIMDBool: SimdBool<N>;
+    fn splat(value: N) -> Self;
+    unsafe fn from_slice_unaligned_unchecked(slice: &[N]) -> Self;
+    unsafe fn write_to_slice_unaligned_unchecked(self, slice: &mut [N]);
+    fn max(self, other: Self) -> Self;
+    fn min(self, other: Self) -> Self;
+    fn ge(self, other: Self) -> Self::SIMDBool;
+    fn gt(self, other: Self) -> Self::SIMDBool;
+    fn le(self, other: Self) -> Self::SIMDBool;
+    fn lt(self, other: Self) -> Self::SIMDBool;
+}
+
+macro_rules! impl_simd_basic {
+    ($scalar:ty, $simd:ty, $simd_bool:ty) => {
+        impl SimdBasic<$scalar> for $simd {
+            type SIMDBool = $simd_bool;
+
+            #[inline]
+            fn splat(value: $scalar) -> Self {
+                Self::splat(value)
+            }
+
+            #[inline]
+            unsafe fn from_slice_unaligned_unchecked(slice: &[$scalar]) -> Self {
+                Self::from_slice_unaligned_unchecked(slice)
+            }
+
+            #[inline]
+            unsafe fn write_to_slice_unaligned_unchecked(self, slice: &mut [$scalar]) {
+                Self::write_to_slice_unaligned_unchecked(self, slice);
+            }
+
+            //noinspection RsUnresolvedReference
+            #[inline]
+            fn max(self, other: Self) -> Self {
+                Self::max(self, other)
+            }
+
+            //noinspection RsUnresolvedReference
+            #[inline]
+            fn min(self, other: Self) -> Self {
+                Self::min(self, other)
+            }
+
+            #[inline]
+            fn ge(self, other: Self) -> Self::SIMDBool {
+                Self::ge(self, other)
+            }
+
+            #[inline]
+            fn gt(self, other: Self) -> Self::SIMDBool {
+                Self::gt(self, other)
+            }
+
+            #[inline]
+            fn le(self, other: Self) -> Self::SIMDBool {
+                Self::le(self, other)
+            }
+
+            #[inline]
+            fn lt(self, other: Self) -> Self::SIMDBool {
+                Self::lt(self, other)
+            }
+        }
+    };
+}
+
+impl_simd_basic!(u8, u8x16, m8x16);
+impl_simd_basic!(u8, u8x32, m8x32);
+impl_simd_basic!(u16, u16x8, m16x8);
+impl_simd_basic!(u16, u16x16, m16x16);
+impl_simd_basic!(u32, u32x4, m32x4);
+impl_simd_basic!(u32, u32x8, m32x8);
+impl_simd_basic!(u64, u64x4, m64x4);
+impl_simd_basic!(f64, f64x4, m64x4);
+
+
+pub trait SimdFloat<N> {
+    type SIMDBool: SimdBool<N>;
+    //noinspection RsSelfConvention
+    fn is_nan(self) -> Self::SIMDBool;
+    fn ln(self) -> Self;
+}
+
+impl SimdFloat<f64> for f64x4 {
+    type SIMDBool = m64x4;
+
+    #[inline]
+    fn is_nan(self) -> Self::SIMDBool {
+        Self::is_nan(self)
+    }
+
+    //noinspection RsUnresolvedReference
+    #[inline]
+    fn ln(self) -> Self {
+        Self::ln(self)
+    }
+}
+
+impl<N: SimdTypes<N> + Counter, const SIZE: usize> Multiset2<N, SIZE> {
+    pub fn _d(t: &[N], out: &mut [N]) {
+        let vec: N::SIMD128 = unsafe { N::SIMD128::from_slice_unaligned_unchecked(t) };
+        let aa = vec.min(vec);
+        unsafe { aa.write_to_slice_unaligned_unchecked(out) };
+    }
+}
 
 #[allow(clippy::upper_case_acronyms)]
 enum CPUFeature {
@@ -114,9 +247,9 @@ macro_rules! intersection_simd {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> Self {
-            let data = self
-                .data
-                .zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
+            let mut data = std::mem::MaybeUninit::<[u16; SIZE]>::uninit().assume_init();
+            self.data
+                .zip_map_chunks::<_, $lanes>(&other.data, &mut data, |a, b, out| {
                     let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
                     let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
                     simd_a.min(simd_b).write_to_slice_unaligned_unchecked(out);
@@ -131,9 +264,9 @@ macro_rules! union_simd {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> Self {
-            let data = self
-                .data
-                .zip_map_chunks::<_, $lanes>(&other.data, |a, b, out| {
+            let mut data = std::mem::MaybeUninit::<[u16; SIZE]>::uninit().assume_init();
+            self.data
+                .zip_map_chunks::<_, $lanes>(&other.data, &mut data, |a, b, out| {
                     let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
                     let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
                     simd_a.max(simd_b).write_to_slice_unaligned_unchecked(out);

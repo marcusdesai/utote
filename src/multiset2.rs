@@ -1,5 +1,8 @@
 #[allow(unused_imports)]
 use num_traits::{AsPrimitive, One, Unsigned, Zero};
+#[cfg(not(feature = "packed_simd"))]
+#[cfg(feature = "rand")]
+use rand::{Rng, RngCore};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -7,9 +10,6 @@ use std::iter::FromIterator;
 use std::mem;
 use std::ops::AddAssign;
 use std::slice::{Iter, IterMut};
-#[cfg(not(feature = "packed_simd"))]
-#[cfg(feature = "rand")]
-use rand::{Rng, RngCore};
 
 pub trait Counter:
     Clone + Copy + Debug + Default + Hash + One + Ord + PartialEq + PartialOrd + Unsigned + Zero
@@ -39,7 +39,6 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     pub const SIZE: usize = SIZE;
 
     /// The number of elements in the multiset.
-    #[deprecated(since = "0.5.0", note = "Please use associated const SIZE instead")]
     #[inline]
     pub fn len() -> usize {
         SIZE
@@ -889,6 +888,6 @@ impl<N: Counter, const SIZE: usize> Default for Multiset2<N, SIZE> {
 mod tests {
     use super::*;
     use rand::prelude::*;
-    tests_x4!(multiset2u8_4, Multiset2<u16, 4>, u16);
-    tests_x8!(multiset2u8_8, Multiset2<u16, 8>, u16);
+    tests_x4!(multiset2u16_4, Multiset2<u16, 4>, u16);
+    tests_x8!(multiset2u16_8, Multiset2<u16, 8>, u16);
 }
