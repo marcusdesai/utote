@@ -26,6 +26,7 @@ where
 {
     const REM: [T; SIZE] = [T::ZERO; SIZE];
 
+    #[inline]
     pub fn new(slice: &'a [T]) -> Self {
         let rem = slice.len() % SIZE;
         let fst_len = slice.len() - rem;
@@ -42,10 +43,12 @@ where
         }
     }
 
+    #[inline]
     pub fn remainder(&self) -> &[T] {
         &self.rem
     }
 
+    #[inline]
     pub fn iter(&self) -> Chunks<'_, T> {
         self.v.chunks(SIZE)
     }
@@ -102,6 +105,7 @@ where
         }
     }
 
+    #[inline]
     pub fn remainder_with<F: FnMut(&mut [T])>(self, mut f: F) {
         let mut remainder = Self::REM;
         remainder[..self.rem.len()].swap_with_slice(self.rem);
@@ -109,6 +113,7 @@ where
         self.rem.swap_with_slice(&mut remainder[..self.rem.len()]);
     }
 
+    #[inline]
     pub fn iter_mut(&mut self) -> ChunksMut<'_, T> {
         self.v.chunks_mut(SIZE)
     }
@@ -141,7 +146,7 @@ mod test_chunks_pad_mut {
     }
 }
 
-trait SliceChunkUtils<T> {
+trait ChunkPadUtils<T> {
     fn zip_map_chunks_remainder<F, const C: usize>(&self, other: &Self, out: &mut Self, f: F)
     where
         F: FnMut(&[T], &[T], &mut [T]);
@@ -158,6 +163,12 @@ trait SliceChunkUtils<T> {
     where
         F: Fn(&[T], &[T]) -> bool;
     fn zip_all_chunks_exact<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool;
+    fn zip_any_chunks_remainder<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool;
+    fn zip_any_chunks_exact<F, const C: usize>(&self, other: &Self, f: F) -> bool
     where
         F: Fn(&[T], &[T]) -> bool;
     fn fold_chunks_remainder<Acc, F, const C: usize>(&self, init: Acc, f: F) -> Acc
@@ -180,7 +191,7 @@ trait SliceChunkUtils<T> {
         F: Fn(&[T]) -> bool;
 }
 
-impl<T> SliceChunkUtils<T> for [T]
+impl<T> ChunkPadUtils<T> for [T]
 where
     T: Copy + SmallNumConsts,
 {
@@ -254,6 +265,28 @@ where
         F: Fn(&[T], &[T]) -> bool,
     {
         self.chunks(C).zip(other.chunks(C)).all(|(a, b)| f(a, b))
+    }
+
+    #[inline]
+    fn zip_any_chunks_remainder<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool,
+    {
+        let self_chunks = ChunksPad::<'_, T, C>::new(self);
+        let other_chunks = ChunksPad::<'_, T, C>::new(other);
+        self_chunks
+            .iter()
+            .zip(other_chunks.iter())
+            .any(|(a, b)| f(a, b))
+            || { f(self_chunks.remainder(), other_chunks.remainder()) }
+    }
+
+    #[inline]
+    fn zip_any_chunks_exact<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool,
+    {
+        self.chunks(C).zip(other.chunks(C)).any(|(a, b)| f(a, b))
     }
 
     #[inline]
@@ -452,6 +485,58 @@ mod test_slice_chunk_utils {
     }
 
     #[test]
+    fn test_zip_any_chunks_remainder() {
+        const CHUNK: usize = 2;
+        let this: [u16; 5] = [1, 2, 3, 4, 5];
+        let other = [1, 1, 1, 1, 1];
+
+        let is_true =
+            this.zip_any_chunks_remainder::<_, CHUNK>(&other, |slice_this, slice_other| {
+                slice_this
+                    .iter()
+                    .zip(slice_other.iter())
+                    .any(|(a, b)| b >= a)
+            });
+
+        assert!(is_true);
+
+        let is_false =
+            this.zip_any_chunks_remainder::<_, CHUNK>(&other, |slice_this, slice_other| {
+                slice_this
+                    .iter()
+                    .zip(slice_other.iter())
+                    .any(|(a, b)| b > a)
+            });
+
+        assert!(!is_false);
+    }
+
+    #[test]
+    fn test_zip_any_chunks_exact() {
+        const CHUNK: usize = 2;
+        let this: [u16; 4] = [1, 2, 3, 4];
+        let other = [1, 1, 1, 1];
+
+        let is_true = this.zip_any_chunks_exact::<_, CHUNK>(&other, |slice_this, slice_other| {
+            slice_this
+                .iter()
+                .zip(slice_other.iter())
+                .any(|(a, b)| b >= a)
+        });
+
+        assert!(is_true);
+
+        let is_false = this.zip_any_chunks_exact::<_, CHUNK>(&other, |slice_this, slice_other| {
+            slice_this
+                .iter()
+                .zip(slice_other.iter())
+                .any(|(a, b)| b > a)
+        });
+
+        assert!(!is_false);
+    }
+
+    #[test]
     fn test_fold_chunks_remainder() {
         const CHUNK: usize = 2;
         let this: [u16; 5] = [1, 2, 3, 4, 5];
@@ -517,6 +602,9 @@ pub(crate) trait ChunkUtils<T> {
     fn zip_all_chunks<F, const C: usize>(&self, other: &Self, f: F) -> bool
     where
         F: Fn(&[T], &[T]) -> bool;
+    fn zip_any_chunks<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool;
     fn fold_chunks<Acc, F, const C: usize>(&self, init: Acc, f: F) -> Acc
     where
         F: FnMut(Acc, &[T]) -> Acc;
@@ -569,6 +657,18 @@ where
             self.zip_all_chunks_exact::<F, C>(other, f)
         } else {
             self.zip_all_chunks_remainder::<F, C>(other, f)
+        }
+    }
+
+    #[inline]
+    fn zip_any_chunks<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool,
+    {
+        if SIZE % C == 0 {
+            self.zip_any_chunks_exact::<F, C>(other, f)
+        } else {
+            self.zip_any_chunks_remainder::<F, C>(other, f)
         }
     }
 
@@ -651,6 +751,18 @@ where
             self.zip_all_chunks_exact::<F, C>(other, f)
         } else {
             self.zip_all_chunks_remainder::<F, C>(other, f)
+        }
+    }
+
+    #[inline]
+    fn zip_any_chunks<F, const C: usize>(&self, other: &Self, f: F) -> bool
+    where
+        F: Fn(&[T], &[T]) -> bool,
+    {
+        if self.len() % C == 0 {
+            self.zip_any_chunks_exact::<F, C>(other, f)
+        } else {
+            self.zip_any_chunks_remainder::<F, C>(other, f)
         }
     }
 
