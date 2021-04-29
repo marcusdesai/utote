@@ -16,7 +16,6 @@ documentation = "https://docs.rs/utote"
 packed_simd = { version = "0.3.4", package = "packed_simd_2", optional = true }
 rand = { version = "0.8.3", features = ["small_rng"], optional = true }
 num-traits = "0.2.14"
-lazy_static = "1.4.0"
 paste = "1.0.5"
 
 [dev-dependencies]

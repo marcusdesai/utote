@@ -52,6 +52,9 @@ you can explicitly direct the compiler to use SIMD vectors, if they are availabl
 */
 // todo: fix above example
 
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
+
 mod multiset;
 pub use multiset::*;
 

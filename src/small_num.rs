@@ -1,5 +1,5 @@
 /// Defines basic constants which can be defined for small values.
-pub(crate) trait SmallNumConsts {
+pub trait SmallNumConsts {
     const ZERO: Self;
     const ONE: Self;
     const MAX: Self;

@@ -12,7 +12,7 @@ use std::ops::AddAssign;
 use std::slice::{Iter, IterMut};
 
 pub trait Counter:
-    Clone + Copy + Debug + Default + Hash + One + Ord + PartialEq + PartialOrd + Unsigned + Zero
+    Clone + Copy + Debug + Default + Hash + One + Ord + PartialEq + PartialOrd + Unsigned + Zero + AsPrimitive<usize> + AsPrimitive<f64>
 {
     // empty
 }
@@ -709,10 +709,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(feature = "rand")]
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
-    pub fn choose_random<T: RngCore>(&mut self, rng: &mut T)
-    where
-        N: AsPrimitive<usize>,
-    {
+    pub fn choose_random<T: RngCore>(&mut self, rng: &mut T) {
         let total = self.total();
         if total == 0 {
             return;
@@ -750,10 +747,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     /// ```
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
-    pub fn collision_entropy(&self) -> f64
-    where
-        N: AsPrimitive<usize> + AsPrimitive<f64>,
-    {
+    pub fn collision_entropy(&self) -> f64 {
         let total: f64 = self.total().as_(); // todo: note use of .as_()
         -self
             .fold(0.0, |acc, frequency| {
@@ -775,10 +769,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     /// ```
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
-    pub fn shannon_entropy(&self) -> f64
-    where
-        N: AsPrimitive<usize> + AsPrimitive<f64>,
-    {
+    pub fn shannon_entropy(&self) -> f64 {
         let total: f64 = self.total().as_();
         -self.fold(0.0, |acc, frequency| {
             if frequency > N::zero() {
