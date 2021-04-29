@@ -1,4 +1,5 @@
-#[allow(unused_imports)]
+#[cfg(feature = "packed_simd")]
+use crate::simd_impl::SimdTypes;
 use num_traits::{AsPrimitive, One, Unsigned, Zero};
 #[cfg(not(feature = "packed_simd"))]
 #[cfg(feature = "rand")]
@@ -11,11 +12,41 @@ use std::mem;
 use std::ops::AddAssign;
 use std::slice::{Iter, IterMut};
 
-pub trait Counter:
-    Clone + Copy + Debug + Default + Hash + One + Ord + PartialEq + PartialOrd + Unsigned + Zero + AsPrimitive<usize> + AsPrimitive<f64>
+#[doc(hidden)]
+pub trait CounterBasic:
+    Clone
+    + Copy
+    + Debug
+    + Default
+    + Hash
+    + One
+    + Ord
+    + PartialEq
+    + PartialOrd
+    + Unsigned
+    + Zero
+    + AsPrimitive<usize>
+    + AsPrimitive<f64>
 {
     // empty
 }
+
+impl CounterBasic for u8 {}
+impl CounterBasic for u16 {}
+impl CounterBasic for u32 {}
+impl CounterBasic for u64 {}
+
+#[cfg(not(feature = "packed_simd"))]
+pub trait Counter: CounterBasic {
+    // empty
+}
+
+#[cfg(feature = "packed_simd")]
+#[doc(hidden)]
+pub trait Counter: CounterBasic + SimdTypes {
+    // empty
+}
+
 impl Counter for u8 {}
 impl Counter for u16 {}
 impl Counter for u32 {}
@@ -355,11 +386,10 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     /// ```
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
-    pub fn count_non_zero(&self) -> usize
-    where
-        N: AsPrimitive<usize>,
-    {
-        self.fold(0, |acc, elem| acc + elem.min(N::one()).as_())
+    pub fn count_non_zero(&self) -> usize {
+        self.fold(0, |acc, elem| {
+            acc + <N as AsPrimitive<usize>>::as_(elem.min(N::one()))
+        })
     }
 
     /// Return the number of elements whose counter is zero.
@@ -564,11 +594,11 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     /// - This may overflow.
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
-    pub fn total(&self) -> usize
-    where
-        N: AsPrimitive<usize>,
-    {
-        self.data.iter().map(|e| (*e).as_()).sum()
+    pub fn total(&self) -> usize {
+        self.data
+            .iter()
+            .map(|e| <N as AsPrimitive<usize>>::as_(*e))
+            .sum()
     }
 
     /// Returns a tuple containing the (element, corresponding largest counter) in the
@@ -718,7 +748,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
         let mut res = [N::zero(); SIZE];
         let mut acc = 0;
         for (i, elem) in self.data.iter().enumerate() {
-            acc += (*elem).as_();
+            acc += <N as AsPrimitive<usize>>::as_(*elem);
             if acc >= choice_value {
                 // Safety: `i` cannot be outside of `res`.
                 unsafe { *res.get_unchecked_mut(i) = *elem }

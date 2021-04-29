@@ -12,7 +12,7 @@ need some specific functionality the abstraction provided doesn't attempt to pro
 iterating generally over padded chunks.
  */
 
-use crate::small_num::SmallNumConsts;
+use num_traits::Zero;
 use std::slice::{from_raw_parts_mut, Chunks, ChunksMut};
 
 struct ChunksPad<'a, T: 'a, const SIZE: usize> {
@@ -22,9 +22,9 @@ struct ChunksPad<'a, T: 'a, const SIZE: usize> {
 
 impl<'a, T: 'a, const SIZE: usize> ChunksPad<'a, T, SIZE>
 where
-    T: Copy + SmallNumConsts,
+    T: Copy + Zero,
 {
-    const REM: [T; SIZE] = [T::ZERO; SIZE];
+    // const REM: [T; SIZE] = [T::ZERO; SIZE];
 
     #[inline]
     pub fn new(slice: &'a [T]) -> Self {
@@ -34,7 +34,7 @@ where
         unsafe {
             let fst = slice.get_unchecked(..fst_len);
             let snd = slice.get_unchecked(fst_len..);
-            let mut remainder = Self::REM;
+            let mut remainder = [T::zero(); SIZE];
             remainder[..snd.len()].copy_from_slice(snd);
             Self {
                 v: fst,
@@ -61,9 +61,9 @@ struct ChunksPadMut<'a, T: 'a, const SIZE: usize> {
 
 impl<'a, T: 'a, const SIZE: usize> ChunksPadMut<'a, T, SIZE>
 where
-    T: Copy + SmallNumConsts,
+    T: Copy + Zero,
 {
-    const REM: [T; SIZE] = [T::ZERO; SIZE];
+    // const REM: [T; SIZE] = [T::ZERO; SIZE];
 
     #[inline]
     fn new(slice: &'a mut [T]) -> Self {
@@ -81,7 +81,7 @@ where
 
     #[inline]
     pub fn remainder_with<F: FnMut(&mut [T])>(self, mut f: F) {
-        let mut remainder = Self::REM;
+        let mut remainder = [T::zero(); SIZE];
         remainder[..self.rem.len()].swap_with_slice(self.rem);
         f(&mut remainder);
         self.rem.swap_with_slice(&mut remainder[..self.rem.len()]);
@@ -140,7 +140,7 @@ trait ChunkPadUtils<T> {
 
 impl<T> ChunkPadUtils<T> for [T]
 where
-    T: Copy + SmallNumConsts,
+    T: Copy + Zero,
 {
     #[inline]
     fn zip_map_chunks_remainder<F, const C: usize>(&self, other: &Self, out: &mut Self, mut f: F)
@@ -323,7 +323,7 @@ pub(crate) trait ChunkUtils<T> {
 
 impl<T> ChunkUtils<T> for [T]
 where
-    T: Copy + SmallNumConsts,
+    T: Copy + Zero,
 {
     #[inline]
     fn zip_map_chunks<F, const C: usize>(&self, other: &Self, out: &mut Self, f: F)
