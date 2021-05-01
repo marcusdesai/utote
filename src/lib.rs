@@ -53,7 +53,10 @@ you can explicitly direct the compiler to use SIMD vectors, if they are availabl
 // todo: fix above example
 
 #![allow(incomplete_features)]
-#![feature(const_generics, const_evaluatable_checked)]
+#![cfg_attr(
+    feature = "packed_simd",
+    feature(const_generics, const_evaluatable_checked)
+)]
 
 mod multiset;
 pub use multiset::*;
@@ -64,6 +67,7 @@ mod tests;
 
 mod multiset2;
 pub use multiset2::*;
+#[cfg(feature = "packed_simd")]
 mod chunks;
 #[cfg(feature = "packed_simd")]
 mod simd_impl;

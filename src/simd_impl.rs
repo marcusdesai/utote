@@ -5,6 +5,7 @@ use packed_simd::*;
 use paste::paste;
 #[cfg(feature = "rand")]
 use rand::{Rng, RngCore};
+use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::{Add, Div, Mul};
 
@@ -29,6 +30,7 @@ impl_simd_types!(u8, u8x16, u8x32);
 impl_simd_types!(u16, u16x8, u16x16);
 impl_simd_types!(u32, u32x4, u32x8);
 impl_simd_types!(u64, u64x4, u64x4);
+impl_simd_types!(usize, usizex4, usizex4);
 
 #[doc(hidden)]
 pub trait SimdBool<N> {
@@ -74,10 +76,11 @@ impl_simd_bool!(u16, u16x16, m16x16);
 impl_simd_bool!(u32, u32x4, m32x4);
 impl_simd_bool!(u32, u32x8, m32x8);
 impl_simd_bool!(u64, u64x4, m64x4);
+impl_simd_bool!(usize, usizex4, msizex4);
 impl_simd_bool!(f64, f64x4, m64x4);
 
 #[doc(hidden)]
-pub trait SimdBasic<N>: Copy + PartialEq + Add<Self, Output = Self> {
+pub trait SimdBasic<N>: Copy + PartialEq + Add<Self, Output = Self> + Debug {
     const LANES: usize;
     type SIMDBool: SimdBool<N, Select = Self>;
     fn splat(value: N) -> Self;
@@ -155,6 +158,7 @@ impl_simd_basic!(u16, u16x16, m16x16);
 impl_simd_basic!(u32, u32x4, m32x4);
 impl_simd_basic!(u32, u32x8, m32x8);
 impl_simd_basic!(u64, u64x4, m64x4);
+impl_simd_basic!(usize, usizex4, msizex4);
 impl_simd_basic!(f64, f64x4, m64x4);
 
 #[doc(hidden)]
@@ -400,7 +404,7 @@ macro_rules! shannon_entropy_simd {
     };
 }
 
-macro_rules! simd_dispatch2 {
+macro_rules! simd_dispatch {
     (simd128 = $simd128:ty, simd256 = $simd256:ty |
     pub fn $name:ident (&$self_:ty $(, $arg:ident: $typ:ty)*) -> $ret:ty $body:block) => {
         paste! {
@@ -439,30 +443,32 @@ macro_rules! simd_dispatch2 {
     };
 }
 
-impl<N: SimdTypes + Counter, const SIZE: usize> Multiset2<N, SIZE>
+impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE>
 where
     [(); N::SIMD128::LANES]: Sized,
     [(); N::SIMD256::LANES]: Sized,
     [(); N::SIMDFloat::LANES]: Sized,
 {
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn intersection(&self, other: &Self) -> Self {
             self.zip_map(other, |s1, s2| s1.min(s2))
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn union(&self, other: &Self) -> Self {
             self.zip_map(other, |s1, s2| s1.max(s2))
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn count_non_zero(&self) -> usize {
-            self.fold(0, |acc, elem| acc + <N as AsPrimitive<usize>>::as_(elem.min(N::zero())))
+            self.iter().fold(0, |acc, &elem| {
+                acc + <N as AsPrimitive<usize>>::as_(elem.min(N::zero()))
+            })
         }
     }
 
@@ -478,27 +484,26 @@ where
         self.count_non_zero() == 1
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn is_disjoint(&self, other: &Self) -> bool {
-            self.data
-                .iter()
+            self.iter()
                 .zip(other.data.iter())
                 .all(|(a, b)| a.min(b) == &N::zero())
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn is_subset(&self, other: &Self) -> bool {
-            self.data.iter().zip(other.data.iter()).all(|(a, b)| a <= b)
+            self.iter().zip(other.data.iter()).all(|(a, b)| a <= b)
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn is_superset(&self, other: &Self) -> bool {
-            self.data.iter().zip(other.data.iter()).all(|(a, b)| a >= b)
+            self.iter().zip(other.data.iter()).all(|(a, b)| a >= b)
         }
     }
 
@@ -514,24 +519,24 @@ where
         self != other && self.is_superset(other)
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn is_any_lesser(&self, other: &Self) -> bool {
-            self.data.iter().zip(other.data.iter()).any(|(a, b)| a < b)
+            self.iter().zip(other.data.iter()).any(|(a, b)| a < b)
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn is_any_greater(&self, other: &Self) -> bool {
-            self.data.iter().zip(other.data.iter()).any(|(a, b)| a > b)
+            self.iter().zip(other.data.iter()).any(|(a, b)| a > b)
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMD128, simd256 = N::SIMD256 |
         pub fn total(&self) -> usize {
-            self.data.iter().map(|e| <N as AsPrimitive<usize>>::as_(*e)).sum()
+            self.iter().map(|e| <N as AsPrimitive<usize>>::as_(*e)).sum()
         }
     }
 
@@ -546,7 +551,7 @@ where
         let choice_value = rng.gen_range(1..=total);
         let mut res = [N::zero(); SIZE];
         let mut acc = 0;
-        for (i, elem) in self.data.iter().enumerate() {
+        for (i, elem) in self.iter().enumerate() {
             acc += <N as AsPrimitive<usize>>::as_(*elem);
             if acc >= choice_value {
                 // Safety: `i` cannot be outside of `res`.
@@ -557,12 +562,12 @@ where
         self.data = res
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMDFloat, simd256 = N::SIMDFloat |
         pub fn collision_entropy(&self) -> f64 {
             let total: f64 = self.total().as_();
-            -self
-                .fold(0.0, |acc, frequency| {
+            -self.into_iter()
+                .fold(0.0, |acc, &frequency| {
                     let freq_f64: f64 = <N as AsPrimitive<f64>>::as_(frequency);
                     acc + (freq_f64 / total).powf(2.0)
                 })
@@ -570,11 +575,11 @@ where
         }
     }
 
-    simd_dispatch2! {
+    simd_dispatch! {
         simd128 = N::SIMDFloat, simd256 = N::SIMDFloat |
         pub fn shannon_entropy(&self) -> f64 {
             let total: f64 = self.total().as_();
-            -self.fold(0.0, |acc, frequency| {
+            -self.into_iter().fold(0.0, |acc, &frequency| {
                 if frequency > N::zero() {
                     let freq_f64: f64 = <N as AsPrimitive<f64>>::as_(frequency);
                     let prob = freq_f64 / total;

@@ -854,24 +854,24 @@ macro_rules! multiset_simd_array {
     };
 }
 
-multiset_simd_array!(MSu8x2<SIZE>, u8x2, u8, m8x2);
-multiset_simd_array!(MSu8x4<SIZE>, u8x4, u8, m8x4);
-multiset_simd_array!(MSu8x8<SIZE>, u8x8, u8, m8x8);
-multiset_simd_array!(MSu8x16<SIZE>, u8x16, u8, m8x16);
-multiset_simd_array!(MSu8x32<SIZE>, u8x32, u8, m8x32);
-multiset_simd_array!(MSu8x64<SIZE>, u8x64, u8, m8x64);
-multiset_simd_array!(MSu16x2<SIZE>, u16x2, u16, m16x2);
-multiset_simd_array!(MSu16x4<SIZE>, u16x4, u16, m16x4);
-multiset_simd_array!(MSu16x8<SIZE>, u16x8, u16, m16x8);
-multiset_simd_array!(MSu16x16<SIZE>, u16x16, u16, m16x16);
-multiset_simd_array!(MSu16x32<SIZE>, u16x32, u16, m16x32);
-multiset_simd_array!(MSu32x2<SIZE>, u32x2, u32, m32x2);
-multiset_simd_array!(MSu32x4<SIZE>, u32x4, u32, m32x4);
-multiset_simd_array!(MSu32x8<SIZE>, u32x8, u32, m32x8);
-multiset_simd_array!(MSu32x16<SIZE>, u32x16, u32, m32x16);
-multiset_simd_array!(MSu64x2<SIZE>, u64x2, u64, m64x2);
-multiset_simd_array!(MSu64x4<SIZE>, u64x4, u64, m64x4);
-multiset_simd_array!(MSu64x8<SIZE>, u64x8, u64, m64x8);
+// multiset_simd_array!(MSu8x2<SIZE>, u8x2, u8, m8x2);
+// multiset_simd_array!(MSu8x4<SIZE>, u8x4, u8, m8x4);
+// multiset_simd_array!(MSu8x8<SIZE>, u8x8, u8, m8x8);
+// multiset_simd_array!(MSu8x16<SIZE>, u8x16, u8, m8x16);
+// multiset_simd_array!(MSu8x32<SIZE>, u8x32, u8, m8x32);
+// multiset_simd_array!(MSu8x64<SIZE>, u8x64, u8, m8x64);
+// multiset_simd_array!(MSu16x2<SIZE>, u16x2, u16, m16x2);
+// multiset_simd_array!(MSu16x4<SIZE>, u16x4, u16, m16x4);
+// multiset_simd_array!(MSu16x8<SIZE>, u16x8, u16, m16x8);
+// multiset_simd_array!(MSu16x16<SIZE>, u16x16, u16, m16x16);
+// multiset_simd_array!(MSu16x32<SIZE>, u16x32, u16, m16x32);
+// multiset_simd_array!(MSu32x2<SIZE>, u32x2, u32, m32x2);
+// multiset_simd_array!(MSu32x4<SIZE>, u32x4, u32, m32x4);
+// multiset_simd_array!(MSu32x8<SIZE>, u32x8, u32, m32x8);
+// multiset_simd_array!(MSu32x16<SIZE>, u32x16, u32, m32x16);
+// multiset_simd_array!(MSu64x2<SIZE>, u64x2, u64, m64x2);
+// multiset_simd_array!(MSu64x4<SIZE>, u64x4, u64, m64x4);
+// multiset_simd_array!(MSu64x8<SIZE>, u64x8, u64, m64x8);
 
 // Any alias where the simd type has an f64 equivalent lane-wise, can use this implementation.
 macro_rules! multiset_simd_array_stats {
@@ -934,15 +934,15 @@ macro_rules! multiset_simd_array_stats {
     };
 }
 
-multiset_simd_array_stats!(MSu8x2<SIZE>, u8x2, u8, f64x2);
-multiset_simd_array_stats!(MSu8x4<SIZE>, u8x4, u8, f64x4);
-multiset_simd_array_stats!(MSu8x8<SIZE>, u8x8, u8, f64x8);
-multiset_simd_array_stats!(MSu16x2<SIZE>, u16x2, u16, f64x2);
-multiset_simd_array_stats!(MSu16x4<SIZE>, u16x4, u16, f64x4);
-multiset_simd_array_stats!(MSu16x8<SIZE>, u16x8, u16, f64x8);
-multiset_simd_array_stats!(MSu32x2<SIZE>, u32x2, u32, f64x2);
-multiset_simd_array_stats!(MSu32x4<SIZE>, u32x4, u32, f64x4);
-multiset_simd_array_stats!(MSu32x8<SIZE>, u32x8, u32, f64x8);
+// multiset_simd_array_stats!(MSu8x2<SIZE>, u8x2, u8, f64x2);
+// multiset_simd_array_stats!(MSu8x4<SIZE>, u8x4, u8, f64x4);
+// multiset_simd_array_stats!(MSu8x8<SIZE>, u8x8, u8, f64x8);
+// multiset_simd_array_stats!(MSu16x2<SIZE>, u16x2, u16, f64x2);
+// multiset_simd_array_stats!(MSu16x4<SIZE>, u16x4, u16, f64x4);
+// multiset_simd_array_stats!(MSu16x8<SIZE>, u16x8, u16, f64x8);
+// multiset_simd_array_stats!(MSu32x2<SIZE>, u32x2, u32, f64x2);
+// multiset_simd_array_stats!(MSu32x4<SIZE>, u32x4, u32, f64x4);
+// multiset_simd_array_stats!(MSu32x8<SIZE>, u32x8, u32, f64x8);
 
 pub type MSu8x2<const SIZE: usize> = Multiset<u8x2, SIZE>;
 pub type MSu8x4<const SIZE: usize> = Multiset<u8x4, SIZE>;
@@ -966,10 +966,10 @@ pub type MSu64x2<const SIZE: usize> = Multiset<u64x2, SIZE>;
 pub type MSu64x4<const SIZE: usize> = Multiset<u64x4, SIZE>;
 pub type MSu64x8<const SIZE: usize> = Multiset<u64x8, SIZE>;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    tests_x4!(ms2u32x2, Multiset<u32x2, 2>, u32);
-    tests_x8!(ms1u8x8, Multiset<u8x8, 1>, u8);
-    tests_x8!(ms2u32x4, Multiset<u32x4, 2>, u32);
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     tests_x4!(ms2u32x2, Multiset<u32x2, 2>, u32);
+//     tests_x8!(ms1u8x8, Multiset<u8x8, 1>, u8);
+//     tests_x8!(ms2u32x4, Multiset<u32x4, 2>, u32);
+// }

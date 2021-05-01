@@ -1,18 +1,33 @@
 #[cfg(feature = "packed_simd")]
 use crate::simd_impl::SimdTypes;
 use num_traits::{AsPrimitive, One, Unsigned, Zero};
-#[cfg(not(feature = "packed_simd"))]
-#[cfg(feature = "rand")]
+#[cfg(all(not(feature = "packed_simd"), feature = "rand"))]
 use rand::{Rng, RngCore};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::mem;
-use std::ops::AddAssign;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 use std::slice::{Iter, IterMut};
 
 #[doc(hidden)]
+// Just arithmetic impls for unsigned ints.
+pub trait CounterArithmetic:
+    Sized + Add + AddAssign + Div + DivAssign + Mul + MulAssign + Rem + RemAssign + Sub + SubAssign
+{
+    // empty
+}
+
+impl CounterArithmetic for u8 {}
+impl CounterArithmetic for u16 {}
+impl CounterArithmetic for u32 {}
+impl CounterArithmetic for u64 {}
+impl CounterArithmetic for usize {}
+
+#[doc(hidden)]
+// Collects various properties into one trait for more concise implementations. All of these
+// properties are implemented by unsigned integers.
 pub trait CounterBasic:
     Clone
     + Copy
@@ -35,15 +50,17 @@ impl CounterBasic for u8 {}
 impl CounterBasic for u16 {}
 impl CounterBasic for u32 {}
 impl CounterBasic for u64 {}
+impl CounterBasic for usize {}
 
 #[cfg(not(feature = "packed_simd"))]
-pub trait Counter: CounterBasic {
+/// Docs for counter type
+pub trait Counter: CounterArithmetic + CounterBasic {
     // empty
 }
 
 #[cfg(feature = "packed_simd")]
 #[doc(hidden)]
-pub trait Counter: CounterBasic + SimdTypes {
+pub trait Counter: CounterArithmetic + CounterBasic + SimdTypes {
     // empty
 }
 
@@ -51,10 +68,10 @@ impl Counter for u8 {}
 impl Counter for u16 {}
 impl Counter for u32 {}
 impl Counter for u64 {}
+impl Counter for usize {}
 
 /// Multiset! yay
 #[derive(Debug)]
-#[repr(transparent)]
 pub struct Multiset2<N: Counter, const SIZE: usize> {
     pub(crate) data: [N; SIZE],
 }
@@ -64,6 +81,209 @@ impl<N: Counter, const SIZE: usize> Hash for Multiset2<N, SIZE> {
         self.data.hash(state)
     }
 }
+
+impl<N: Counter, const SIZE: usize> Clone for Multiset2<N, SIZE> {
+    #[inline]
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Copy for Multiset2<N, SIZE> {}
+
+impl<N: Counter, const SIZE: usize> PartialEq for Multiset2<N, SIZE> {
+    // Array compare will always use memcmp because N will be a unit, so no need for SIMD
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Eq for Multiset2<N, SIZE> {}
+
+impl<N: Counter, const SIZE: usize> FromIterator<N> for Multiset2<N, SIZE> {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
+        let mut res: Self = unsafe { Multiset2::new_uninitialized() };
+        let it = iter.into_iter().chain(std::iter::repeat(N::zero()));
+        res.data.iter_mut().zip(it).for_each(|(r, e)| *r = e);
+        res
+    }
+}
+
+impl<'a, N: 'a + Counter, const SIZE: usize> FromIterator<&'a N> for Multiset2<N, SIZE> {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = &'a N>>(iter: T) -> Self {
+        iter.into_iter().copied().collect()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> IntoIterator for Multiset2<N, SIZE> {
+    type Item = N;
+    type IntoIter = std::array::IntoIter<N, SIZE>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        std::array::IntoIter::new(self.data)
+    }
+}
+
+impl<'a, N: Counter, const SIZE: usize> IntoIterator for &'a Multiset2<N, SIZE> {
+    type Item = &'a N;
+    type IntoIter = Iter<'a, N>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> PartialOrd for Multiset2<N, SIZE> {
+    #[allow(clippy::comparison_chain)]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let mut order: Ordering = Ordering::Equal;
+        for (e_self, e_other) in self.data.iter().zip(other.data.iter()) {
+            match order {
+                Ordering::Equal => {
+                    if e_self < e_other {
+                        order = Ordering::Less
+                    } else if e_self > e_other {
+                        order = Ordering::Greater
+                    }
+                }
+                Ordering::Less => {
+                    if e_self > e_other {
+                        return None;
+                    }
+                }
+                Ordering::Greater => {
+                    if e_self < e_other {
+                        return None;
+                    }
+                }
+            }
+        }
+        Some(order)
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Default for Multiset2<N, SIZE> {
+    #[inline]
+    fn default() -> Self {
+        Multiset2 {
+            data: [N::default(); SIZE],
+        }
+    }
+}
+
+// Ops implementations
+// todo: use SIMD for ops?
+
+impl<N: Counter, const SIZE: usize> Add for Multiset2<N, SIZE> {
+    type Output = Multiset2<N, SIZE>;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        self.into_iter()
+            .zip(rhs.into_iter())
+            .map(|(a, b)| a + b)
+            .collect()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> AddAssign for Multiset2<N, SIZE> {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(l, r)| *l += r);
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Div for Multiset2<N, SIZE> {
+    type Output = Multiset2<N, SIZE>;
+
+    #[inline]
+    fn div(self, rhs: Self) -> Self::Output {
+        self.into_iter()
+            .zip(rhs.into_iter())
+            .map(|(a, b)| a / b)
+            .collect()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> DivAssign for Multiset2<N, SIZE> {
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(l, r)| *l /= r);
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Mul for Multiset2<N, SIZE> {
+    type Output = Multiset2<N, SIZE>;
+
+    #[inline]
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.into_iter()
+            .zip(rhs.into_iter())
+            .map(|(a, b)| a * b)
+            .collect()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> MulAssign for Multiset2<N, SIZE> {
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(l, r)| *l *= r);
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Rem for Multiset2<N, SIZE> {
+    type Output = Multiset2<N, SIZE>;
+
+    #[inline]
+    fn rem(self, rhs: Self) -> Self::Output {
+        self.into_iter()
+            .zip(rhs.into_iter())
+            .map(|(a, b)| a % b)
+            .collect()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> RemAssign for Multiset2<N, SIZE> {
+    #[inline]
+    fn rem_assign(&mut self, rhs: Self) {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(l, r)| *l %= r);
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Sub for Multiset2<N, SIZE> {
+    type Output = Multiset2<N, SIZE>;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.into_iter()
+            .zip(rhs.into_iter())
+            .map(|(a, b)| a - b)
+            .collect()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> SubAssign for Multiset2<N, SIZE> {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(l, r)| *l -= r);
+    }
+}
+
+// Array specific
 
 impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     /// The number of elements in the multiset.
@@ -80,18 +300,6 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
         Multiset2 {
             data: mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init(),
         }
-    }
-
-    #[inline]
-    pub(crate) fn fold<Acc, F>(&self, init: Acc, mut f: F) -> Acc
-    where
-        F: FnMut(Acc, N) -> Acc,
-    {
-        let mut res = init;
-        for e in self.data.iter() {
-            res = f(res, *e)
-        }
-        res
     }
 
     #[inline]
@@ -387,7 +595,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn count_non_zero(&self) -> usize {
-        self.fold(0, |acc, elem| {
+        self.iter().fold(0, |acc, &elem| {
             acc + <N as AsPrimitive<usize>>::as_(elem.min(N::one()))
         })
     }
@@ -442,9 +650,8 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn is_disjoint(&self, other: &Self) -> bool {
-        self.data
-            .iter()
-            .zip(other.data.iter())
+        self.iter()
+            .zip(other.iter())
             .all(|(a, b)| a.min(b) == &N::zero())
     }
 
@@ -464,7 +671,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn is_subset(&self, other: &Self) -> bool {
-        self.data.iter().zip(other.data.iter()).all(|(a, b)| a <= b)
+        self.iter().zip(other.iter()).all(|(a, b)| a <= b)
     }
 
     /// Check whether `self` is a superset of `other`.
@@ -483,7 +690,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn is_superset(&self, other: &Self) -> bool {
-        self.data.iter().zip(other.data.iter()).all(|(a, b)| a >= b)
+        self.iter().zip(other.iter()).all(|(a, b)| a >= b)
     }
 
     /// Check whether `self` is a proper subset of `other`.
@@ -542,7 +749,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn is_any_lesser(&self, other: &Self) -> bool {
-        self.data.iter().zip(other.data.iter()).any(|(a, b)| a < b)
+        self.iter().zip(other.iter()).any(|(a, b)| a < b)
     }
 
     /// Check whether any element of `self` is greater than an element of `other`.
@@ -561,7 +768,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn is_any_greater(&self, other: &Self) -> bool {
-        self.data.iter().zip(other.data.iter()).any(|(a, b)| a > b)
+        self.iter().zip(other.iter()).any(|(a, b)| a > b)
     }
 
     /// Check whether all elements have a count of zero.
@@ -595,8 +802,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[cfg(not(feature = "packed_simd"))]
     #[inline]
     pub fn total(&self) -> usize {
-        self.data
-            .iter()
+        self.iter()
             .map(|e| <N as AsPrimitive<usize>>::as_(*e))
             .sum()
     }
@@ -614,12 +820,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[inline]
     pub fn argmax(&self) -> (usize, N) {
         // iter cannot be empty, so it's fine to unwrap
-        let (index, max) = self
-            .data
-            .iter()
-            .enumerate()
-            .max_by_key(|(_, e)| *e)
-            .unwrap();
+        let (index, max) = self.iter().enumerate().max_by_key(|(_, e)| *e).unwrap();
         (index, *max)
     }
 
@@ -649,7 +850,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[inline]
     pub fn max(&self) -> N {
         // iter cannot be empty, so it's fine to unwrap
-        *self.data.iter().max().unwrap()
+        *self.iter().max().unwrap()
     }
 
     /// Returns a tuple containing the (element, corresponding smallest counter) in
@@ -665,12 +866,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[inline]
     pub fn argmin(&self) -> (usize, N) {
         // iter cannot be empty, so it's fine to unwrap
-        let (index, min) = self
-            .data
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, e)| *e)
-            .unwrap();
+        let (index, min) = self.iter().enumerate().min_by_key(|(_, e)| *e).unwrap();
         (index, *min)
     }
 
@@ -700,7 +896,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[inline]
     pub fn min(&self) -> N {
         // iter cannot be empty, so it's fine to unwrap
-        *self.data.iter().min().unwrap()
+        *self.iter().min().unwrap()
     }
 
     /// Set all element counts, except for the given `elem`, to zero.
@@ -747,7 +943,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
         let choice_value = rng.gen_range(1..=total);
         let mut res = [N::zero(); SIZE];
         let mut acc = 0;
-        for (i, elem) in self.data.iter().enumerate() {
+        for (i, elem) in self.iter().enumerate() {
             acc += <N as AsPrimitive<usize>>::as_(*elem);
             if acc >= choice_value {
                 // Safety: `i` cannot be outside of `res`.
@@ -780,6 +976,7 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     pub fn collision_entropy(&self) -> f64 {
         let total: f64 = self.total().as_(); // todo: note use of .as_()
         -self
+            .into_iter()
             .fold(0.0, |acc, frequency| {
                 let freq_f64: f64 = frequency.as_();
                 acc + (freq_f64 / total).powf(2.0)
@@ -801,8 +998,8 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     #[inline]
     pub fn shannon_entropy(&self) -> f64 {
         let total: f64 = self.total().as_();
-        -self.fold(0.0, |acc, frequency| {
-            if frequency > N::zero() {
+        -self.into_iter().fold(0.0, |acc, frequency| {
+            if frequency > &N::zero() {
                 let freq_f64: f64 = frequency.as_();
                 let prob = freq_f64 / total;
                 acc + prob * prob.ln()
@@ -813,102 +1010,11 @@ impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE> {
     }
 }
 
-impl<N: Counter, const SIZE: usize> Clone for Multiset2<N, SIZE> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<N: Counter, const SIZE: usize> Copy for Multiset2<N, SIZE> {}
-
-impl<N: Counter, const SIZE: usize> AddAssign for Multiset2<N, SIZE>
-where
-    N: AddAssign,
-{
-    // todo: use SIMD
-    fn add_assign(&mut self, rhs: Self) {
-        self.data
-            .iter_mut()
-            .zip(rhs.data.iter())
-            .for_each(|(l, r)| *l += *r);
-    }
-}
-
-impl<N: Counter, const SIZE: usize> PartialEq for Multiset2<N, SIZE> {
-    // Array compare will always use memcmp because N will be a unit, so no need for SIMD
-    fn eq(&self, other: &Self) -> bool {
-        self.data == other.data
-    }
-}
-
-impl<N: Counter, const SIZE: usize> Eq for Multiset2<N, SIZE> {}
-
-impl<N: Counter, const SIZE: usize> FromIterator<N> for Multiset2<N, SIZE> {
-    #[inline]
-    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
-        let mut res: Self = unsafe { Multiset2::new_uninitialized() };
-        let it = iter.into_iter().chain(std::iter::repeat(N::zero()));
-        res.data.iter_mut().zip(it).for_each(|(r, e)| *r = e);
-        res
-    }
-}
-
-impl<'a, N: 'a + Counter, const SIZE: usize> FromIterator<&'a N> for Multiset2<N, SIZE> {
-    #[inline]
-    fn from_iter<T: IntoIterator<Item = &'a N>>(iter: T) -> Self {
-        iter.into_iter().copied().collect()
-    }
-}
-
-impl<N: Counter, const SIZE: usize> PartialOrd for Multiset2<N, SIZE> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let mut order: Ordering = Ordering::Equal;
-        for (e_self, e_other) in self.data.iter().zip(other.data.iter()) {
-            match order {
-                Ordering::Equal => {
-                    if e_self < e_other {
-                        order = Ordering::Less
-                    } else if e_self > e_other {
-                        order = Ordering::Greater
-                    }
-                }
-                Ordering::Less => {
-                    if e_self > e_other {
-                        return None;
-                    }
-                }
-                Ordering::Greater => {
-                    if e_self < e_other {
-                        return None;
-                    }
-                }
-            }
-        }
-        Some(order)
-    }
-}
-
-impl<'a, N: Counter, const SIZE: usize> IntoIterator for &'a Multiset2<N, SIZE> {
-    type Item = &'a N;
-    type IntoIter = Iter<'a, N>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.data.iter()
-    }
-}
-
-impl<N: Counter, const SIZE: usize> Default for Multiset2<N, SIZE> {
-    fn default() -> Self {
-        Multiset2 {
-            data: [N::default(); SIZE],
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use rand::prelude::*;
+
     tests_x4!(multiset2u16_4, Multiset2<u16, 4>, u16);
-    tests_x8!(multiset2u16_8, Multiset2<u16, 8>, u16);
+    // tests_x8!(multiset2u16_8, Multiset2<u16, 8>, u16);
 }

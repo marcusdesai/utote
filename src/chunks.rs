@@ -24,8 +24,6 @@ impl<'a, T: 'a, const SIZE: usize> ChunksPad<'a, T, SIZE>
 where
     T: Copy + Zero,
 {
-    // const REM: [T; SIZE] = [T::ZERO; SIZE];
-
     #[inline]
     pub fn new(slice: &'a [T]) -> Self {
         let rem = slice.len() % SIZE;
@@ -63,8 +61,6 @@ impl<'a, T: 'a, const SIZE: usize> ChunksPadMut<'a, T, SIZE>
 where
     T: Copy + Zero,
 {
-    // const REM: [T; SIZE] = [T::ZERO; SIZE];
-
     #[inline]
     fn new(slice: &'a mut [T]) -> Self {
         let len = slice.len();
