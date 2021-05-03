@@ -1,5 +1,5 @@
 use crate::chunks::ChunkUtils;
-use crate::{Counter, Multiset2};
+use crate::{Counter, Multiset};
 use num_traits::AsPrimitive;
 use packed_simd::*;
 use paste::paste;
@@ -9,8 +9,23 @@ use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::{Add, Div, Mul};
 
+mod sealed {
+    use packed_simd::*;
+
+    pub trait Sealed {}
+
+    macro_rules! impl_sealed {
+        ($($t:ty),*) => {$(impl Sealed for $t {})*};
+    }
+
+    impl_sealed!(
+        u8, u16, u32, u64, usize, f64, m8x16, m8x32, m16x8, m16x16, m32x4, m32x8, msizex4, m64x4,
+        u8x16, u8x32, u16x8, u16x16, u32x4, u32x8, u64x4, usizex4, f64x4
+    );
+}
+
 #[doc(hidden)]
-pub trait SimdTypes: Sized {
+pub trait SimdTypes: sealed::Sealed + Sized {
     type SIMD128: SimdBasic<Self>;
     type SIMD256: SimdBasic<Self>;
     type SIMDFloat: SimdBasic<f64> + SimdFloat<f64>;
@@ -33,7 +48,7 @@ impl_simd_types!(u64, u64x4, u64x4);
 impl_simd_types!(usize, usizex4, usizex4);
 
 #[doc(hidden)]
-pub trait SimdBool<N> {
+pub trait SimdBool<N>: sealed::Sealed {
     type Select: SimdBasic<N>;
     fn all(self) -> bool;
     fn any(self) -> bool;
@@ -80,7 +95,9 @@ impl_simd_bool!(usize, usizex4, msizex4);
 impl_simd_bool!(f64, f64x4, m64x4);
 
 #[doc(hidden)]
-pub trait SimdBasic<N>: Copy + PartialEq + Add<Self, Output = Self> + Debug {
+pub trait SimdBasic<N>:
+    sealed::Sealed + Copy + PartialEq + Add<Self, Output = Self> + Debug
+{
     const LANES: usize;
     type SIMDBool: SimdBool<N, Select = Self>;
     fn splat(value: N) -> Self;
@@ -164,7 +181,11 @@ impl_simd_basic!(f64, f64x4, m64x4);
 #[doc(hidden)]
 pub trait SimdFloat<N>
 where
-    Self: Copy + Add<Self, Output = Self> + Mul<Self, Output = Self> + Div<f64, Output = Self>,
+    Self: sealed::Sealed
+        + Copy
+        + Add<Self, Output = Self>
+        + Mul<Self, Output = Self>
+        + Div<f64, Output = Self>,
 {
     type SIMDBool: SimdBool<N, Select = Self>;
     //noinspection RsSelfConvention
@@ -215,7 +236,7 @@ macro_rules! intersection_simd {
                     simd_a.min(simd_b).write_to_slice_unaligned_unchecked(out);
                 },
             );
-            Multiset2 { data }
+            Multiset { data }
         }
     };
 }
@@ -235,7 +256,7 @@ macro_rules! union_simd {
                     simd_a.max(simd_b).write_to_slice_unaligned_unchecked(out);
                 },
             );
-            Multiset2 { data }
+            Multiset { data }
         }
     };
 }
@@ -443,7 +464,7 @@ macro_rules! simd_dispatch {
     };
 }
 
-impl<N: Counter, const SIZE: usize> Multiset2<N, SIZE>
+impl<N: Counter, const SIZE: usize> Multiset<N, SIZE>
 where
     [(); N::SIMD128::LANES]: Sized,
     [(); N::SIMD256::LANES]: Sized,

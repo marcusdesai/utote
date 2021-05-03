@@ -10,10 +10,10 @@ Any multiset where all counters are zero is equivalent to the empty multiset.
 ## Examples
 
 ```
-use utote::MSu8;
+use utote::Multiset;
 
 // A multiset of 4 elements, which can be counted up to u8::MAX
-let multiset = MSu8::<4>::from_slice(&[1, 3, 5, 7]);
+let multiset: Multiset<u8, 4> = Multiset::from_slice(&[1, 3, 5, 7]);
 
 assert_eq!(multiset.total(), 16);
 assert_eq!(multiset.get(1), Some(&3));
@@ -35,56 +35,17 @@ SIMD vectors, or directly from a single SIMD vector.
 [dependencies]
 utote = { version = ..., features = ["packed_simd"] }
 ```
-
-Although the compiler is is able to auto-vectorise code, these capabilities are provided so that
-you can explicitly direct the compiler to use SIMD vectors, if they are available.
-
-## Examples
-
-```
-// use utote::MSu8x2;
-//
-// let multiset = MSu8x2::<2>::from_slice(&[1, 3, 5, 7]);
-//
-// assert_eq!(multiset.total(), 16);
-// assert_eq!(multiset.get(1), Some(3));
-```
 */
-// todo: fix above example
 
-#![allow(incomplete_features)]
 #![cfg_attr(
     feature = "packed_simd",
-    feature(const_generics, const_evaluatable_checked)
+    feature(const_generics, const_evaluatable_checked),
+    allow(incomplete_features)
 )]
 
 mod multiset;
 pub use multiset::*;
-
-#[macro_use]
-#[allow(unused_macros)]
-mod tests;
-
-mod multiset2;
-pub use multiset2::*;
 #[cfg(feature = "packed_simd")]
 mod chunks;
 #[cfg(feature = "packed_simd")]
-mod simd_impl;
-
-#[macro_use]
-mod common;
-mod small_num;
-
-mod scalar;
-pub use scalar::*;
-
-#[cfg(feature = "packed_simd")]
 mod simd;
-
-#[cfg(feature = "packed_simd")]
-pub use simd::*;
-
-// Re-Exports
-#[cfg(feature = "packed_simd")]
-pub use packed_simd;
