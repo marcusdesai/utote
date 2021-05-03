@@ -13,26 +13,99 @@ iterating generally over padded chunks.
  */
 
 use num_traits::Zero;
-use std::slice::{from_raw_parts_mut, Chunks, ChunksMut};
+use std::slice::from_raw_parts_mut;
 
-struct ChunksPad<'a, T: 'a, const SIZE: usize> {
-    v: &'a [T],
-    rem: [T; SIZE],
+// We can implement a much more exacting version of ChunksExact because we can ensure that it will
+// only be used on slices of the correct length, and we can use const generics.
+
+struct ChunksExact<'a, T: 'a, const C: usize> {
+    slice: &'a [T],
 }
 
-impl<'a, T: 'a, const SIZE: usize> ChunksPad<'a, T, SIZE>
+impl<'a, T: 'a, const C: usize> ChunksExact<'a, T, C> {
+    #[inline]
+    pub fn new(slice: &'a [T]) -> Self {
+        Self { slice }
+    }
+}
+
+impl<'a, T, const C: usize> Iterator for ChunksExact<'a, T, C> {
+    type Item = &'a [T];
+
+    #[inline]
+    fn next(&mut self) -> Option<&'a [T]> {
+        if self.slice.is_empty() {
+            None
+        } else {
+            let (fst, snd) = self.slice.split_at(C);
+            self.slice = snd;
+            Some(fst)
+        }
+    }
+}
+
+struct ChunksExactMut<'a, T: 'a, const C: usize> {
+    slice: &'a mut [T],
+}
+
+impl<'a, T: 'a, const C: usize> ChunksExactMut<'a, T, C> {
+    #[inline]
+    pub fn new(slice: &'a mut [T]) -> Self {
+        Self { slice }
+    }
+}
+
+impl<'a, T, const C: usize> Iterator for ChunksExactMut<'a, T, C> {
+    type Item = &'a mut [T];
+
+    #[inline]
+    fn next(&mut self) -> Option<&'a mut [T]> {
+        if self.slice.is_empty() {
+            None
+        } else {
+            let tmp = std::mem::replace(&mut self.slice, &mut []);
+            let (head, tail) = tmp.split_at_mut(C);
+            self.slice = tail;
+            Some(head)
+        }
+    }
+}
+
+trait ChunksExactTrait<T> {
+    fn strict_chunks_exact<const C: usize>(&self) -> ChunksExact<'_, T, C>;
+    fn strict_chunks_exact_mut<const C: usize>(&mut self) -> ChunksExactMut<'_, T, C>;
+}
+
+impl<T> ChunksExactTrait<T> for [T] {
+    #[inline]
+    fn strict_chunks_exact<const C: usize>(&self) -> ChunksExact<'_, T, C> {
+        ChunksExact::new(self)
+    }
+
+    #[inline]
+    fn strict_chunks_exact_mut<const C: usize>(&mut self) -> ChunksExactMut<'_, T, C> {
+        ChunksExactMut::new(self)
+    }
+}
+
+struct ChunksPad<'a, T: 'a, const C: usize> {
+    v: &'a [T],
+    rem: [T; C],
+}
+
+impl<'a, T: 'a, const C: usize> ChunksPad<'a, T, C>
 where
     T: Copy + Zero,
 {
     #[inline]
     pub fn new(slice: &'a [T]) -> Self {
-        let rem = slice.len() % SIZE;
+        let rem = slice.len() % C;
         let fst_len = slice.len() - rem;
         // SAFETY: 0 <= fst_len <= slice.len() by construction above
         unsafe {
             let fst = slice.get_unchecked(..fst_len);
             let snd = slice.get_unchecked(fst_len..);
-            let mut remainder = [T::zero(); SIZE];
+            let mut remainder = [T::zero(); C];
             remainder[..snd.len()].copy_from_slice(snd);
             Self {
                 v: fst,
@@ -47,24 +120,24 @@ where
     }
 
     #[inline]
-    pub fn iter(&self) -> Chunks<'_, T> {
-        self.v.chunks(SIZE)
+    pub fn iter(&self) -> ChunksExact<'_, T, C> {
+        self.v.strict_chunks_exact()
     }
 }
 
-struct ChunksPadMut<'a, T: 'a, const SIZE: usize> {
+struct ChunksPadMut<'a, T: 'a, const C: usize> {
     v: &'a mut [T],
     rem: &'a mut [T],
 }
 
-impl<'a, T: 'a, const SIZE: usize> ChunksPadMut<'a, T, SIZE>
+impl<'a, T: 'a, const C: usize> ChunksPadMut<'a, T, C>
 where
     T: Copy + Zero,
 {
     #[inline]
     fn new(slice: &'a mut [T]) -> Self {
         let len = slice.len();
-        let rem = len % SIZE;
+        let rem = len % C;
         let fst_len = len - rem;
         // SAFETY: 0 <= fst_len <= slice.len() by construction above
         let ptr = slice.as_mut_ptr();
@@ -77,15 +150,15 @@ where
 
     #[inline]
     pub fn remainder_with<F: FnMut(&mut [T])>(self, mut f: F) {
-        let mut remainder = [T::zero(); SIZE];
+        let mut remainder = [T::zero(); C];
         remainder[..self.rem.len()].swap_with_slice(self.rem);
         f(&mut remainder);
         self.rem.swap_with_slice(&mut remainder[..self.rem.len()]);
     }
 
     #[inline]
-    pub fn iter_mut(&mut self) -> ChunksMut<'_, T> {
-        self.v.chunks_mut(SIZE)
+    pub fn iter_mut(&mut self) -> ChunksExactMut<'_, T, C> {
+        self.v.strict_chunks_exact_mut()
     }
 }
 
@@ -146,6 +219,7 @@ where
         let self_chunks = ChunksPad::<'_, T, C>::new(self);
         let other_chunks = ChunksPad::<'_, T, C>::new(other);
         let mut out_chunks = ChunksPadMut::<'_, T, C>::new(out);
+
         out_chunks
             .iter_mut()
             .zip(self_chunks.iter().zip(other_chunks.iter()))
@@ -159,8 +233,11 @@ where
     where
         F: FnMut(&[T], &[T], &mut [T]),
     {
-        out.chunks_mut(C)
-            .zip(self.chunks(C).zip(other.chunks(C)))
+        out.strict_chunks_exact_mut::<C>()
+            .zip(
+                self.strict_chunks_exact::<C>()
+                    .zip(other.strict_chunks_exact::<C>()),
+            )
             .for_each(|(r, (a, b))| f(a, b, r));
     }
 
@@ -183,8 +260,8 @@ where
     where
         F: FnMut(&mut [T], &[T]),
     {
-        self.chunks_mut(C)
-            .zip(other.chunks(C))
+        self.strict_chunks_exact_mut::<C>()
+            .zip(other.strict_chunks_exact::<C>())
             .for_each(|(a, b)| f(a, b))
     }
 
@@ -207,7 +284,9 @@ where
     where
         F: Fn(&[T], &[T]) -> bool,
     {
-        self.chunks(C).zip(other.chunks(C)).all(|(a, b)| f(a, b))
+        self.strict_chunks_exact::<C>()
+            .zip(other.strict_chunks_exact::<C>())
+            .all(|(a, b)| f(a, b))
     }
 
     #[inline]
@@ -229,7 +308,9 @@ where
     where
         F: Fn(&[T], &[T]) -> bool,
     {
-        self.chunks(C).zip(other.chunks(C)).any(|(a, b)| f(a, b))
+        self.strict_chunks_exact::<C>()
+            .zip(other.strict_chunks_exact::<C>())
+            .any(|(a, b)| f(a, b))
     }
 
     #[inline]
@@ -252,7 +333,7 @@ where
         F: FnMut(Acc, &[T]) -> Acc,
     {
         let mut res = init;
-        for slice in self.chunks(C) {
+        for slice in self.strict_chunks_exact::<C>() {
             res = f(res, slice);
         }
         res
@@ -272,7 +353,7 @@ where
     where
         F: Fn(&[T]) -> bool,
     {
-        self.chunks(C).all(|slice| f(slice))
+        self.strict_chunks_exact::<C>().all(|slice| f(slice))
     }
 
     #[inline]
@@ -289,7 +370,7 @@ where
     where
         F: Fn(&[T]) -> bool,
     {
-        self.chunks(C).any(|slice| f(slice))
+        self.strict_chunks_exact::<C>().any(|slice| f(slice))
     }
 }
 

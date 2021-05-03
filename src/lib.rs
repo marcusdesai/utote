@@ -13,7 +13,7 @@ Any multiset where all counters are zero is equivalent to the empty multiset.
 use utote::Multiset;
 
 // A multiset of 4 elements, which can be counted up to u8::MAX
-let multiset: Multiset<u8, 4> = Multiset::from_slice(&[1, 3, 5, 7]);
+let multiset: Multiset<u8, 4> = Multiset::from(&[1, 3, 5, 7]);
 
 assert_eq!(multiset.total(), 16);
 assert_eq!(multiset.get(1), Some(&3));
@@ -33,19 +33,21 @@ SIMD vectors, or directly from a single SIMD vector.
 
 ```toml
 [dependencies]
-utote = { version = ..., features = ["packed_simd"] }
+utote = { version = ..., features = ["simd"] }
 ```
 */
 
+// todo: useful when you have, for example, the same 10 things to always store
+
 #![cfg_attr(
-    feature = "packed_simd",
+    feature = "simd",
     feature(const_generics, const_evaluatable_checked),
     allow(incomplete_features)
 )]
 
 mod multiset;
 pub use multiset::*;
-#[cfg(feature = "packed_simd")]
+#[cfg(feature = "simd")]
 mod chunks;
-#[cfg(feature = "packed_simd")]
+#[cfg(feature = "simd")]
 mod simd;
