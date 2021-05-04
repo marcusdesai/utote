@@ -15,8 +15,8 @@ iterating generally over padded chunks.
 use num_traits::Zero;
 use std::slice::from_raw_parts_mut;
 
-// We can implement a much more exacting version of ChunksExact because we can ensure that it will
-// only be used on slices of the correct length, and we can use const generics.
+// We can implement a much more exacting version of ChunksExact without a remainder because we can
+// ensure that it will only be used on slices of the correct length, and we can use const generics.
 
 struct ChunksExact<'a, T: 'a, const C: usize> {
     slice: &'a [T],

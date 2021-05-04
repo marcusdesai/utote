@@ -21,7 +21,7 @@ mod sealed {
     impl Sealed for usize {}
 }
 
-// Just arithmetic impls for unsigned ints.
+// Just arithmetic impls for ints.
 #[doc(hidden)]
 pub trait CounterArithmetic:
     sealed::Sealed
@@ -75,7 +75,8 @@ impl CounterBasic for u64 {}
 impl CounterBasic for usize {}
 
 #[cfg(not(feature = "simd"))]
-/// Docs for counter type
+/// The Counter trait simplifies the use of Multiset with generics. This trait is sealed and not
+/// implementable outside of this crate.
 pub trait Counter: sealed::Sealed + CounterArithmetic + CounterBasic {
     // empty
 }
@@ -125,6 +126,8 @@ impl<N: Counter, const SIZE: usize> Eq for Multiset<N, SIZE> {}
 impl<N: Counter, const SIZE: usize> FromIterator<N> for Multiset<N, SIZE> {
     #[inline]
     fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
+        // Safety: iter chained with repeated zeroes guarantees that we have enough elements to
+        // fully initialise the Multiset.
         let mut res: Self = unsafe { Multiset::new_uninitialized() };
         let it = iter.into_iter().chain(std::iter::repeat(N::zero()));
         res.iter_mut().zip(it).for_each(|(r, e)| *r = e);
@@ -219,6 +222,9 @@ impl<N: Counter, const SIZE: usize> PartialOrd for Multiset<N, SIZE> {
     }
 }
 
+// todo: implement Ord using Dershowitz–Manna ordering?
+//  See https://en.wikipedia.org/wiki/Dershowitz%E2%80%93Manna_ordering
+
 impl<N: Counter, const SIZE: usize> Default for Multiset<N, SIZE> {
     #[inline]
     fn default() -> Self {
@@ -228,9 +234,7 @@ impl<N: Counter, const SIZE: usize> Default for Multiset<N, SIZE> {
     }
 }
 
-// Ops implementations
 // todo: use SIMD for ops?
-// todo: add tests for ops
 
 impl<N: Counter, const SIZE: usize> Add for Multiset<N, SIZE> {
     type Output = Multiset<N, SIZE>;
@@ -417,8 +421,6 @@ impl<N: Counter, const SIZE: usize> SubAssign<N> for Multiset<N, SIZE> {
     }
 }
 
-// todo: impl difference, symmetric_difference and from_elements
-
 impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// The number of elements in the multiset.
     pub const SIZE: usize = SIZE;
@@ -435,6 +437,8 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
         Multiset { data }
     }
 
+    // Safety: The Multiset created by this function must only be used once the Multiset.data
+    // array is guaranteed to be fully initialised.
     #[inline]
     pub(crate) unsafe fn new_uninitialized() -> Self {
         Multiset {
@@ -453,7 +457,8 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
         N3: Counter,
         F: FnMut(N, N2) -> N3,
     {
-        // Safety
+        // Safety: both self and other *must* be the same length as res, therefore every element
+        // of res is guaranteed to be initialised upon completing the iter_mut.
         let mut res = unsafe { Multiset::new_uninitialized() };
         res.iter_mut()
             .zip(self.iter().zip(other.iter()))
@@ -487,6 +492,37 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     #[inline]
     pub fn repeat(elem: N) -> Self {
         Multiset { data: [elem; SIZE] }
+    }
+
+    /// Builds a Multiset from an iterator of elements in the multiset, incrementing the count of
+    /// each element as it occurs in the iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::Multiset;
+    /// let multiset = Multiset::<u8, 4>::from_elements(&[1usize, 1, 0, 2, 2, 2]);
+    /// assert_eq!(multiset, Multiset::from([1, 2, 3, 0]))
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If any item in the iterator is >= the size of the Multiset.
+    ///
+    #[inline]
+    pub fn from_elements<'a, I>(elements: I) -> Self
+    where
+        I: IntoIterator<Item = &'a usize>,
+    {
+        let mut res = Multiset::empty();
+        elements.into_iter().for_each(|&e| {
+            if e >= SIZE {
+                panic!("element: {} not in Multiset (element > SIZE)", e)
+            }
+            // Safety: Above condition ensures `e` is not out of bounds.
+            unsafe { *res.data.get_unchecked_mut(e) += N::one() };
+        });
+        res
     }
 
     /// blah
@@ -529,7 +565,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// ```
     #[inline]
     pub fn contains(&self, elem: usize) -> bool {
-        // Safety: trivially guaranteed by bounds check on `elem` param.
+        // Safety: Guaranteed by bounds check on `elem`.
         elem < SIZE && unsafe { self.data.get_unchecked(elem) > &N::zero() }
     }
 
@@ -567,6 +603,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     #[inline]
     pub fn insert(&mut self, elem: usize, amount: N) {
         if elem < SIZE {
+            // Safety: Guaranteed by bounds check on `elem`.
             unsafe { *self.data.get_unchecked_mut(elem) = amount };
         }
     }
@@ -604,6 +641,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     #[inline]
     pub fn remove(&mut self, elem: usize) {
         if elem < SIZE {
+            // Safety: Guaranteed by bounds check on `elem`.
             unsafe { *self.data.get_unchecked_mut(elem) = N::zero() };
         }
     }
@@ -651,8 +689,8 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// ```no_run
     /// use utote::Multiset;
     /// let multiset = Multiset::<u8, 4>::from(&[1, 2, 0, 0]);
-    /// assert_eq!(unsafe { multiset.get_unchecked(1) }, 2);
-    /// assert_eq!(unsafe { multiset.get_unchecked(3) }, 0);
+    /// assert_eq!(unsafe { multiset.get_unchecked(1) }, &2);
+    /// assert_eq!(unsafe { multiset.get_unchecked(3) }, &0);
     /// // unsafe { multiset.get_unchecked(5) };  NOT SAFE!!!
     /// ```
     ///
@@ -666,42 +704,93 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
 
     /// Returns a multiset which is the intersection of `self` and `other`.
     ///
-    /// The Intersection of two multisets A & B is defined as the multiset C where
-    /// `C[0] == min(A[0], B[0])`.
+    /// The Intersection of two multisets `A` & `B` is the multiset `C` where
+    /// `C[i] == min(A[i], B[i])` for all `i` in `C`.
     ///
     /// # Examples
     ///
     /// ```no_run
     /// use utote::Multiset;
     /// let a = Multiset::<u8, 4>::from(&[1, 2, 0, 0]);
-    /// let b = Multiset::<u8, 4>::from(&[0, 2, 3, 0]);
-    /// let c = Multiset::<u8, 4>::from(&[0, 2, 0, 0]);
+    /// let b = Multiset::<u8, 4>::from(&[0, 1, 3, 0]);
+    /// let c = Multiset::<u8, 4>::from(&[0, 1, 0, 0]);
     /// assert_eq!(a.intersection(&b), c);
     /// ```
     #[cfg(not(feature = "simd"))]
     #[inline]
     pub fn intersection(&self, other: &Self) -> Self {
-        self.zip_map(other, |s1, s2| s1.min(s2))
+        self.zip_map(other, |e1, e2| e1.min(e2))
     }
 
     /// Returns a multiset which is the union of `self` and `other`.
     ///
-    /// The union of two multisets A & B is defined as the multiset C where
-    /// `C[0] == max(A[0], B[0])`.
+    /// The union of two multisets `A` & `B` is the multiset `C` where
+    /// `C[i] == max(A[i], B[i])` for all `i` in `C`.
     ///
     /// # Examples
     ///
     /// ```no_run
     /// use utote::Multiset;
     /// let a = Multiset::<u8, 4>::from(&[1, 2, 0, 0]);
-    /// let b = Multiset::<u8, 4>::from(&[0, 2, 3, 0]);
+    /// let b = Multiset::<u8, 4>::from(&[0, 1, 3, 0]);
     /// let c = Multiset::<u8, 4>::from(&[1, 2, 3, 0]);
     /// assert_eq!(a.union(&b), c);
     /// ```
     #[cfg(not(feature = "simd"))]
     #[inline]
     pub fn union(&self, other: &Self) -> Self {
-        self.zip_map(other, |s1, s2| s1.max(s2))
+        self.zip_map(other, |e1, e2| e1.max(e2))
+    }
+
+    /// Returns a multiset which is the difference of `self` and `other`.
+    ///
+    /// The difference of two multisets `A` & `B` is the multiset `C` where
+    /// `C[i] == min(A[i], B[i]) if A[i] > 0 and B[i] > 0, otherwise A[i]` for all `i` in `C`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::Multiset;
+    /// let a = Multiset::<u8, 4>::from(&[1, 2, 0, 0]);
+    /// let b = Multiset::<u8, 4>::from(&[0, 1, 3, 0]);
+    /// let c = Multiset::<u8, 4>::from(&[1, 1, 0, 0]);
+    /// assert_eq!(a.difference(&b), c);
+    /// ```
+    #[inline]
+    pub fn difference(&self, other: &Self) -> Self {
+        self.zip_map(other, |e1, e2| {
+            if e1 > N::zero() && e2 > N::zero() {
+                e1.min(e2)
+            } else {
+                e1
+            }
+        })
+    }
+
+    /// Returns a multiset which is the union of `self` and `other`.
+    ///
+    /// The union of two multisets `A` & `B` is the multiset `C` where
+    /// `C[i] == min(A[i], B[i]) if A[i] > 0 and B[i] > 0, otherwise max(A[i], B[i])` for all `i`
+    /// in `C`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use utote::Multiset;
+    /// let a = Multiset::<u8, 4>::from(&[1, 2, 0, 0]);
+    /// let b = Multiset::<u8, 4>::from(&[0, 1, 3, 0]);
+    /// let c = Multiset::<u8, 4>::from(&[1, 1, 3, 0]);
+    /// assert_eq!(a.symmetric_difference(&b), c);
+    /// ```
+    #[inline]
+    pub fn symmetric_difference(&self, other: &Self) -> Self {
+        self.zip_map(other, |e1, e2| {
+            if e1 > N::zero() && e2 > N::zero() {
+                e1.min(e2)
+            } else {
+                e1.max(e2)
+            }
+        })
     }
 
     /// Return the number of elements whose counter is non-zero.
@@ -1029,6 +1118,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     pub fn choose(&mut self, elem: usize) {
         let mut res = [N::zero(); SIZE];
         if elem < SIZE {
+            // Safety: Guaranteed by bounds check on `elem`.
             unsafe { *res.get_unchecked_mut(elem) = *self.data.get_unchecked(elem) };
         }
         self.data = res
@@ -1069,14 +1159,9 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
         self.data = res
     }
 
-    // todo: mention use of .as_() in changelog, important 1.45 potential break
     /// Calculate the collision entropy of the multiset.
     ///
-    /// safety:
-    /// **In Rust versions before 1.45.0**, some uses of the `as` operator were not entirely safe.
-    /// In particular, it was undefined behavior if
-    /// a truncated floating point value could not fit in the target integer
-    /// type ([#10184](https://github.com/rust-lang/rust/issues/10184));
+    /// Use of as f64
     ///
     /// # Examples
     ///
@@ -1089,7 +1174,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     #[cfg(not(feature = "simd"))]
     #[inline]
     pub fn collision_entropy(&self) -> f64 {
-        let total: f64 = self.total().as_(); // todo: note use of .as_()
+        let total: f64 = self.total().as_();
         -self
             .into_iter()
             .fold(0.0, |acc, frequency| {
@@ -1100,6 +1185,8 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     }
 
     /// Calculate the shannon entropy of the multiset. Uses ln rather than log2.
+    ///
+    /// Use of as f64
     ///
     /// # Examples
     ///
@@ -1131,6 +1218,71 @@ mod tests {
     use approx::assert_relative_eq;
     #[cfg(feature = "rand")]
     use rand::prelude::*;
+
+    #[test]
+    fn test_add() {
+        let set = Multiset::from([2u8, 2, 2, 2]);
+        assert_eq!(set + set, Multiset::from([4u8, 4, 4, 4]));
+        assert_eq!(set + 3, Multiset::from([5u8, 5, 5, 5]));
+
+        let mut set_assign = Multiset::from([3u8, 3, 3, 3]);
+        set_assign += set;
+        assert_eq!(set_assign, Multiset::from([5u8, 5, 5, 5]));
+        set_assign += 2;
+        assert_eq!(set_assign, Multiset::from([7u8, 7, 7, 7]));
+    }
+
+    #[test]
+    fn test_div() {
+        let set = Multiset::from([10u8, 10, 10, 10]);
+        assert_eq!(set / set, Multiset::from([1u8, 1, 1, 1]));
+        assert_eq!(set / 2, Multiset::from([5u8, 5, 5, 5]));
+
+        let mut set_assign = Multiset::from([20u8, 20, 20, 20]);
+        set_assign /= set;
+        assert_eq!(set_assign, Multiset::from([2u8, 2, 2, 2]));
+        set_assign /= 2;
+        assert_eq!(set_assign, Multiset::from([1u8, 1, 1, 1]));
+    }
+
+    #[test]
+    fn test_mul() {
+        let set = Multiset::from([2u8, 2, 2, 2]);
+        assert_eq!(set * set, Multiset::from([4u8, 4, 4, 4]));
+        assert_eq!(set * 3, Multiset::from([6u8, 6, 6, 6]));
+
+        let mut set_assign = Multiset::from([3u8, 3, 3, 3]);
+        set_assign *= set;
+        assert_eq!(set_assign, Multiset::from([6u8, 6, 6, 6]));
+        set_assign *= 2;
+        assert_eq!(set_assign, Multiset::from([12u8, 12, 12, 12]));
+    }
+
+    #[test]
+    fn test_rem() {
+        let set = Multiset::from([10u8, 10, 10, 10]);
+        assert_eq!(set % set, Multiset::from([0u8, 0, 0, 0]));
+        assert_eq!(set % 3, Multiset::from([1u8, 1, 1, 1]));
+
+        let mut set_assign = Multiset::from([3u8, 3, 3, 3]);
+        set_assign %= set;
+        assert_eq!(set_assign, Multiset::from([3u8, 3, 3, 3]));
+        set_assign %= 2;
+        assert_eq!(set_assign, Multiset::from([1u8, 1, 1, 1]));
+    }
+
+    #[test]
+    fn test_sub() {
+        let set = Multiset::from([5u8, 5, 5, 5]);
+        assert_eq!(set - set, Multiset::from([0u8, 0, 0, 0]));
+        assert_eq!(set - 3, Multiset::from([2u8, 2, 2, 2]));
+
+        let mut set_assign = Multiset::from([8u8, 8, 8, 8]);
+        set_assign -= set;
+        assert_eq!(set_assign, Multiset::from([3u8, 3, 3, 3]));
+        set_assign -= 2;
+        assert_eq!(set_assign, Multiset::from([1u8, 1, 1, 1]));
+    }
 
     #[test]
     fn test_zip_map() {
@@ -1259,7 +1411,7 @@ mod tests {
     #[test]
     fn test_get_unchecked() {
         let set = Multiset::<usize, 4>::from([6, 7, 8, 9]);
-        unsafe { assert_eq!(set.get_unchecked(1), 7) }
+        unsafe { assert_eq!(set.get_unchecked(1), &7) }
     }
 
     #[test]

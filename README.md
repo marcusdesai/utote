@@ -2,22 +2,29 @@
 
 [![docs.rs](https://docs.rs/utote/badge.svg)](https://docs.rs/utote)
 [![Crates.io](https://img.shields.io/crates/v/utote.svg)](https://crates.io/crates/utote)
- 
-*** TODO: add note of minimum supported rust version, perhaps to changelog? ***
 
-Stack allocated uint multiset implementation on rust stable, with optional SIMD implementations available using rust 
+Stack allocated uint multiset implementation on rust stable, with optional SIMD implementations available using rust
 nightly.
 
-The SIMD implementation uses [packed_simd](https://rust-lang.github.io/packed_simd/packed_simd_2) (behind a feature 
-flag). `packed_simd` was chosen over alternatives due to it's simplicity and based on the assumption that when 
+**minimum supported rust version: 1.51**
+
+[Docs](https://docs.rs/utote)
+
+### Implementation Notes
+
+The Utote Multiset has a single generic API but multiple equivalent scalar and simd implementations of various 
+functions where the use of simd can enhance performance. The simd functionality is **nightly** only, while the scalar 
+versions can be used on stable.
+
+The nightly only SIMD implementation uses [packed_simd](https://rust-lang.github.io/packed_simd/packed_simd_2) and the 
+unstable features: [const_generics](https://github.com/rust-lang/rust/issues/44580) and 
+[const_evaluatable_checked](https://github.com/rust-lang/rust/issues/76560) (all behind the feature flag `"simd"`). 
+`packed_simd` was chosen over alternatives due to its simplicity and based on the assumption that when 
 [std::simd](https://github.com/rust-lang/stdsimd) is stabilised it will look similar in API structure to `packed_simd` 
 as it is now.
 
-The implementations in `utote` are built using macros rather than generics because there is no generic interface 
-available for the SIMD types available from `packed_simd`. Although there are crates available that enable generic 
-implementation of SIMD code they either lack features in comparison to `packed_simd`, increase the complexity of the 
-code, or are unstable themselves. The other benefit of using macros is that the actual implementation code is 
-straightforward.
+Once const generics and portable simd support hit stable this crate will also become fully stable. Until these features 
+are stabilised the version of Utote will stay below `1.0.0`.
 
 Since multisets are essentially collections of counters + some useful methods on those counters, and to keep things 
 simple, implementations are only provided for `uint` types. The current Multiset is thus quite low level, perhaps 
@@ -27,12 +34,7 @@ Please see the [docs](https://docs.rs/utote) for the API and more information!
 
 ### Future Development
 
-- Build an implementation of Multiset, for scalar and SIMD types, which uses Vec.
-- Build a Multiset implementation for any `T` which uses the `uint` implementations as a backend to handle the element 
-  counters.
-- Once `std::simd` is more fully implemented it should be possible to replace most of the macros with generic 
-  implementations. And once this feature is stabilised it will be possible to enable all the SIMD implementations on 
-  the stable toolchain. 
+- Provide a heap allocated MultisetVec type which uses a Vec for storage rather than an array.
 
 ## License
 
@@ -56,11 +58,29 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+## 0.5.0 (Breaking)
+- Provide uniform generic interface
+- Re-implement scalar and simd backends
+- Remove all type aliases
+- Remove all simd types / considerations from the API 
+- Remove some `const` constructors to enable stable generic interface
+- Add `Rem` ops
+- Add broadcast arithmetic ops
+- Add `From` implementations
+- Complete `FromIterator` and `IntoIterator` coverage
+- Simplify multiple functions
+- Add functions: 
+  - `difference`
+  - `symmetric_difference`
+  - `from_elements`
+  - `is_disjoint`
+
 ### 0.4.1
 - Minor performance improvements
 - make `empty` & `repeat` constructors const
 
 ## 0.4.0 (Breaking)
+- Minimum rust version: 1.51
 - Deprecate direct SIMD implementation
 - Utilise const generics (removing generic-array & typenum)
 
