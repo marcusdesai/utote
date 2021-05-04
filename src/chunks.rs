@@ -1,22 +1,26 @@
 /*
 Chunk Utils
 
-We want to iterate over chunks of the underlying storage of the Multiset structs and process these
-chunks as simd vectors. But to do this we need to guarantee that the size of these chunks is always
-exactly the length of whatever simd vector we want to use. To avoid restricting the size of the
-storage to some multiple of a power of two we need to be able to iterate over chunks and pad any
-chunks which are not the length of the simd vector being used.
+We want to iterate over chunks of the underlying storage of the Multiset
+structs and process these chunks as simd vectors. But to do this we need to
+guarantee that the size of these chunks is always exactly the length of
+whatever simd vector we want to use. To avoid restricting the size of the
+storage to some multiple of a power of two we need to be able to iterate over
+chunks and pad any chunks which are not the length of the simd vector being
+used.
 
-The structs, traits and impls in this file provide an abstraction for doing this. Since we only
-need some specific functionality the abstraction provided doesn't attempt to provide a solution for
-iterating generally over padded chunks.
+The structs, traits and impls in this file provide an abstraction for doing
+this. Since we only need some specific functionality the abstraction provided
+doesn't attempt to provide a solution for iterating generally over padded
+chunks.
  */
 
 use num_traits::Zero;
 use std::slice::from_raw_parts_mut;
 
-// We can implement a much more exacting version of ChunksExact without a remainder because we can
-// ensure that it will only be used on slices of the correct length, and we can use const generics.
+// We can implement a much more exacting version of ChunksExact without a
+// remainder because we can ensure that it will only be used on slices of the
+// correct length, and we can use const generics.
 
 struct ChunksExact<'a, T: 'a, const C: usize> {
     slice: &'a [T],
@@ -486,11 +490,6 @@ where
         }
     }
 }
-
-// SAFETY: `out` vec is constructed as an empty buffer, both zip_map_chunks functions
-// guarantee, if successful, that `out` vec will be fully initialised once complete.
-// let mut out = Vec::with_capacity(self.len());
-// unsafe { out.set_len(self.len()) }
 
 #[cfg(test)]
 mod tests {

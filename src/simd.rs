@@ -356,8 +356,7 @@ macro_rules! total_simd {
         #[inline]
         unsafe fn $name(&self) -> usize {
             if SIZE < <$simd>::LANES {
-                self.data
-                    .iter()
+                self.iter()
                     .map(|e| <N as AsPrimitive<usize>>::as_(*e))
                     .sum()
             } else {

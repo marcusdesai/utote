@@ -16,7 +16,7 @@ The Utote Multiset has a single generic API but multiple equivalent scalar and s
 functions where the use of simd can enhance performance. The simd functionality is **nightly** only, while the scalar 
 versions can be used on stable.
 
-The nightly only SIMD implementation uses [packed_simd](https://rust-lang.github.io/packed_simd/packed_simd_2) and the 
+The nightly only SIMD implementation uses [packed_simd](https://docs.rs/packed_simd_2) and the 
 unstable features: [const_generics](https://github.com/rust-lang/rust/issues/44580) and 
 [const_evaluatable_checked](https://github.com/rust-lang/rust/issues/76560) (all behind the feature flag `"simd"`). 
 `packed_simd` was chosen over alternatives due to its simplicity and based on the assumption that when 
@@ -53,7 +53,7 @@ additional terms or conditions.
 
 ## Acknowledgements
 
-The implementations in this crate are inspired by [generic-array](https://docs.rs/generic-array/0.14.4/generic_array), 
+The implementations in this crate are inspired by [generic-array](https://docs.rs/generic-array), 
 [nalgebra](https://docs.rs/nalgebra) and [simba](https://docs.rs/simba).
 
 # Changelog
@@ -64,16 +64,24 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 - Remove all type aliases
 - Remove all simd types / considerations from the API 
 - Remove some `const` constructors to enable stable generic interface
+- Improve documentation
 - Add `Rem` ops
 - Add broadcast arithmetic ops
 - Add `From` implementations
-- Complete `FromIterator` and `IntoIterator` coverage
+- Complete `FromIterator` and `IntoIterator` impl coverage
+- Add `Index` and `IndexMut` implementations
 - Simplify multiple functions
 - Add functions: 
   - `difference`
   - `symmetric_difference`
   - `from_elements`
   - `is_disjoint`
+  - `get_mut`
+  - `get_unchecked_mut`
+- Add dynamic dispatch on detected cpu features for simd backends, currently supporting:
+  - `AVX2`
+  - `AVX`
+  - `SSE4.2`
 
 ### 0.4.1
 - Minor performance improvements
