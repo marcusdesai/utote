@@ -29,6 +29,10 @@ pub trait SimdTypes: sealed::Sealed + Sized {
     type SIMD128: SimdBasic<Self>;
     type SIMD256: SimdBasic<Self>;
     type SIMDFloat: SimdBasic<f64> + SimdFloat<f64>;
+
+    const L128: usize;
+    const L256: usize;
+    const LF: usize;
 }
 
 macro_rules! impl_simd_types {
@@ -37,6 +41,10 @@ macro_rules! impl_simd_types {
             type SIMD128 = $simd128;
             type SIMD256 = $simd256;
             type SIMDFloat = f64x4;
+
+            const L128: usize = <$simd128>::lanes();
+            const L256: usize = <$simd256>::lanes();
+            const LF: usize = f64x4::lanes();
         }
     };
 }
@@ -222,136 +230,124 @@ impl SimdFloat<f64> for f64x4 {
 }
 
 macro_rules! intersection_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> Self {
             let mut data = std::mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init();
-            self.data.zip_map_chunks::<_, { <$simd>::LANES }>(
-                &other.data,
-                &mut data,
-                |a, b, out| {
+            self.data
+                .zip_map_chunks::<_, $lanes>(&other.data, &mut data, |a, b, out| {
                     let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
                     let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
                     simd_a.min(simd_b).write_to_slice_unaligned_unchecked(out);
-                },
-            );
+                });
             Multiset { data }
         }
     };
 }
 
 macro_rules! union_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> Self {
             let mut data = std::mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init();
-            self.data.zip_map_chunks::<_, { <$simd>::LANES }>(
-                &other.data,
-                &mut data,
-                |a, b, out| {
+            self.data
+                .zip_map_chunks::<_, $lanes>(&other.data, &mut data, |a, b, out| {
                     let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
                     let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
                     simd_a.max(simd_b).write_to_slice_unaligned_unchecked(out);
-                },
-            );
+                });
             Multiset { data }
         }
     };
 }
 
 macro_rules! count_non_zero_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self) -> usize {
-            self.data
-                .fold_chunks::<_, _, { <$simd>::LANES }>(0, |acc, slice| {
-                    let vec = <$simd>::from_slice_unaligned_unchecked(slice);
-                    acc + vec.gt(<$simd>::splat(N::zero())).count_true()
-                })
+            self.data.fold_chunks::<_, _, $lanes>(0, |acc, slice| {
+                let vec = <$simd>::from_slice_unaligned_unchecked(slice);
+                acc + vec.gt(<$simd>::splat(N::zero())).count_true()
+            })
         }
     };
 }
 
 macro_rules! is_disjoint_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> bool {
-            self.data
-                .zip_all_chunks::<_, { <$simd>::LANES }>(&other.data, |a, b| {
-                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                    simd_a.min(simd_b) == <$simd>::splat(N::zero())
-                })
+            self.data.zip_all_chunks::<_, $lanes>(&other.data, |a, b| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.min(simd_b) == <$simd>::splat(N::zero())
+            })
         }
     };
 }
 
 macro_rules! is_subset_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> bool {
-            self.data
-                .zip_all_chunks::<_, { <$simd>::LANES }>(&other.data, |a, b| {
-                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                    simd_a.le(simd_b).all()
-                })
+            self.data.zip_all_chunks::<_, $lanes>(&other.data, |a, b| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.le(simd_b).all()
+            })
         }
     };
 }
 
 macro_rules! is_superset_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> bool {
-            self.data
-                .zip_all_chunks::<_, { <$simd>::LANES }>(&other.data, |a, b| {
-                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                    simd_a.ge(simd_b).all()
-                })
+            self.data.zip_all_chunks::<_, $lanes>(&other.data, |a, b| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.ge(simd_b).all()
+            })
         }
     };
 }
 
 macro_rules! is_any_lesser_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> bool {
-            self.data
-                .zip_all_chunks::<_, { <$simd>::LANES }>(&other.data, |a, b| {
-                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                    simd_a.lt(simd_b).any()
-                })
+            self.data.zip_all_chunks::<_, $lanes>(&other.data, |a, b| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.lt(simd_b).any()
+            })
         }
     };
 }
 
 macro_rules! is_any_greater_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self, other: &Self) -> bool {
-            self.data
-                .zip_all_chunks::<_, { <$simd>::LANES }>(&other.data, |a, b| {
-                    let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                    let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
-                    simd_a.gt(simd_b).any()
-                })
+            self.data.zip_all_chunks::<_, $lanes>(&other.data, |a, b| {
+                let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                let simd_b = <$simd>::from_slice_unaligned_unchecked(b);
+                simd_a.gt(simd_b).any()
+            })
         }
     };
 }
 
 macro_rules! total_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self) -> usize {
@@ -360,14 +356,13 @@ macro_rules! total_simd {
                     .map(|e| <N as AsPrimitive<usize>>::as_(*e))
                     .sum()
             } else {
-                let mut out = [N::zero(); { <$simd>::LANES }];
-                let sum_vec = self.data.fold_chunks::<_, _, { <$simd>::LANES }>(
-                    <$simd>::splat(N::zero()),
-                    |acc, a| {
-                        let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
-                        acc + simd_a
-                    },
-                );
+                let mut out = [N::zero(); $lanes];
+                let sum_vec =
+                    self.data
+                        .fold_chunks::<_, _, $lanes>(<$simd>::splat(N::zero()), |acc, a| {
+                            let simd_a = <$simd>::from_slice_unaligned_unchecked(a);
+                            acc + simd_a
+                        });
                 sum_vec.write_to_slice_unaligned_unchecked(&mut out);
                 out.iter().map(|e| <N as AsPrimitive<usize>>::as_(*e)).sum()
             }
@@ -376,16 +371,15 @@ macro_rules! total_simd {
 }
 
 macro_rules! collision_entropy_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self) -> f64 {
             let total: f64 = self.total() as f64;
             -self
                 .data
-                .fold_chunks::<_, _, { <$simd>::LANES }>(<$simd>::splat(0.0), |acc, slice| {
-                    let mut f64_slice =
-                        MaybeUninit::<[f64; { <$simd>::LANES }]>::uninit().assume_init();
+                .fold_chunks::<_, _, $lanes>(<$simd>::splat(0.0), |acc, slice| {
+                    let mut f64_slice = MaybeUninit::<[f64; $lanes]>::uninit().assume_init();
                     for i in 0..<$simd>::LANES {
                         *f64_slice.get_unchecked_mut(i) =
                             <N as AsPrimitive<f64>>::as_(*slice.get_unchecked(i));
@@ -400,16 +394,15 @@ macro_rules! collision_entropy_simd {
 }
 
 macro_rules! shannon_entropy_simd {
-    ($name:ident, $simd:ty) => {
+    ($name:ident, $simd:ty, $lanes:expr) => {
         #[doc(hidden)]
         #[inline]
         unsafe fn $name(&self) -> f64 {
             let total: f64 = self.total() as f64;
             -self
                 .data
-                .fold_chunks::<_, _, { <$simd>::LANES }>(<$simd>::splat(0.0), |acc, slice| {
-                    let mut f64_slice =
-                        MaybeUninit::<[f64; { <$simd>::LANES }]>::uninit().assume_init();
+                .fold_chunks::<_, _, $lanes>(<$simd>::splat(0.0), |acc, slice| {
+                    let mut f64_slice = MaybeUninit::<[f64; $lanes]>::uninit().assume_init();
                     for i in 0..<$simd>::LANES {
                         *f64_slice.get_unchecked_mut(i) =
                             <N as AsPrimitive<f64>>::as_(*slice.get_unchecked(i));
@@ -425,20 +418,20 @@ macro_rules! shannon_entropy_simd {
 }
 
 macro_rules! simd_dispatch {
-    (simd128 = $simd128:ty, simd256 = $simd256:ty |
+    (simd128 = $simd128:ty, simd256 = $simd256:ty, lanes128 = $lanes128:expr, lanes256 = $lanes256:expr;
     pub fn $name:ident (&$self_:ty $(, $arg:ident: $typ:ty)*) -> $ret:ty $body:block) => {
         paste! {
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             #[target_feature(enable = "avx2,fma")]
-            [<$name _simd>]! { [<_ $name _avx2>], $simd256 }
+            [<$name _simd>]! { [<_ $name _avx2>], $simd256, $lanes256 }
 
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             #[target_feature(enable = "avx")]
-            [<$name _simd>]! { [<_ $name _avx>], $simd256 }
+            [<$name _simd>]! { [<_ $name _avx>], $simd256, $lanes256 }
 
             #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
             #[target_feature(enable = "sse4.2")]
-            [<$name _simd>]! { [<_ $name _sse42>], $simd128 }
+            [<$name _simd>]! { [<_ $name _sse42>], $simd128, $lanes128 }
 
             #[doc(hidden)]
             #[inline]
@@ -463,28 +456,27 @@ macro_rules! simd_dispatch {
     };
 }
 
+#[allow(unused_braces)]
 impl<N: Counter, const SIZE: usize> Multiset<N, SIZE>
 where
-    [(); N::SIMD128::LANES]: Sized,
-    [(); N::SIMD256::LANES]: Sized,
-    [(); N::SIMDFloat::LANES]: Sized,
+    [(); N::L128 * N::L256 * N::LF]: Sized,
 {
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn intersection(&self, other: &Self) -> Self {
             self.zip_map(other, |s1, s2| s1.min(s2))
         }
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn union(&self, other: &Self) -> Self {
             self.zip_map(other, |s1, s2| s1.max(s2))
         }
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn count_non_zero(&self) -> usize {
             self.iter().fold(0, |acc, &elem| {
                 acc + <N as AsPrimitive<usize>>::as_(elem.min(N::zero()))
@@ -505,7 +497,7 @@ where
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn is_disjoint(&self, other: &Self) -> bool {
             self.iter()
                 .zip(other.data.iter())
@@ -514,14 +506,14 @@ where
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn is_subset(&self, other: &Self) -> bool {
             self.iter().zip(other.data.iter()).all(|(a, b)| a <= b)
         }
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn is_superset(&self, other: &Self) -> bool {
             self.iter().zip(other.data.iter()).all(|(a, b)| a >= b)
         }
@@ -540,21 +532,21 @@ where
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn is_any_lesser(&self, other: &Self) -> bool {
             self.iter().zip(other.data.iter()).any(|(a, b)| a < b)
         }
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn is_any_greater(&self, other: &Self) -> bool {
             self.iter().zip(other.data.iter()).any(|(a, b)| a > b)
         }
     }
 
     simd_dispatch! {
-        simd128 = N::SIMD128, simd256 = N::SIMD256 |
+        simd128 = N::SIMD128, simd256 = N::SIMD256, lanes128 = {N::L128}, lanes256 = {N::L256};
         pub fn total(&self) -> usize {
             self.iter().map(|e| <N as AsPrimitive<usize>>::as_(*e)).sum()
         }
@@ -583,7 +575,7 @@ where
     }
 
     simd_dispatch! {
-        simd128 = N::SIMDFloat, simd256 = N::SIMDFloat |
+        simd128 = N::SIMDFloat, simd256 = N::SIMDFloat, lanes128 = {N::LF}, lanes256 = {N::LF};
         pub fn collision_entropy(&self) -> f64 {
             let total: f64 = self.total().as_();
             -self.into_iter()
@@ -596,7 +588,7 @@ where
     }
 
     simd_dispatch! {
-        simd128 = N::SIMDFloat, simd256 = N::SIMDFloat |
+        simd128 = N::SIMDFloat, simd256 = N::SIMDFloat, lanes128 = {N::LF}, lanes256 = {N::LF};
         pub fn shannon_entropy(&self) -> f64 {
             let total: f64 = self.total().as_();
             -self.into_iter().fold(0.0, |acc, &frequency| {
