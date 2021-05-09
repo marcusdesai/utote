@@ -3,6 +3,7 @@ use crate::simd::SimdTypes;
 use num_traits::{AsPrimitive, One, Unsigned, Zero};
 #[cfg(all(not(feature = "simd"), feature = "rand"))]
 use rand::{Rng, RngCore};
+#[cfg(not(feature = "simd"))]
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::hash::{Hash, Hasher};
@@ -101,8 +102,8 @@ impl Counter for usize {}
 /// Each index in the `Multiset` array corresponds to an element in the
 /// multiset. If the value at an index is 0 then there are no instances of the
 /// corresponding uint in the multiset. Because of this correspondence the
-/// order of the counts must remain consistent for the multiset to function
-/// correctly.
+/// order of the counts must remain consistent for any `Multiset` to behave
+/// consistently.
 ///
 /// # Examples
 ///
@@ -320,39 +321,57 @@ impl<'a, N: Counter, const SIZE: usize> From<&'a Multiset<N, SIZE>> for &'a [N] 
     }
 }
 
+impl<'a, N: Counter, const SIZE: usize> From<&'a mut Multiset<N, SIZE>> for &'a mut [N] {
+    fn from(set: &'a mut Multiset<N, SIZE>) -> Self {
+        &mut set.data
+    }
+}
+
 /// Partial order based on proper sub/super sets
+#[cfg(not(feature = "simd"))]
 impl<N: Counter, const SIZE: usize> PartialOrd for Multiset<N, SIZE> {
-    #[allow(clippy::comparison_chain)]
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut order: Ordering = Ordering::Equal;
         for (e_self, e_other) in self.iter().zip(other.iter()) {
             match order {
-                Ordering::Equal => {
-                    if e_self < e_other {
-                        order = Ordering::Less
-                    } else if e_self > e_other {
-                        order = Ordering::Greater
-                    }
-                }
-                Ordering::Less => {
-                    if e_self > e_other {
-                        return None;
-                    }
-                }
-                Ordering::Greater => {
-                    if e_self < e_other {
-                        return None;
-                    }
-                }
+                Ordering::Equal if e_self < e_other => order = Ordering::Less,
+                Ordering::Equal if e_self > e_other => order = Ordering::Greater,
+                Ordering::Less if e_self > e_other => return None,
+                Ordering::Greater if e_self < e_other => return None,
+                _ => (),
             }
         }
         Some(order)
+    }
+
+    #[inline]
+    fn lt(&self, other: &Self) -> bool {
+        self.is_proper_subset(other)
+    }
+
+    #[inline]
+    fn le(&self, other: &Self) -> bool {
+        self.is_subset(other)
+    }
+
+    #[inline]
+    fn gt(&self, other: &Self) -> bool {
+        self.is_proper_superset(other)
+    }
+
+    #[inline]
+    fn ge(&self, other: &Self) -> bool {
+        self.is_superset(other)
     }
 }
 
 // todo: implement Ord using Dershowitz–Manna ordering?
 //  See https://en.wikipedia.org/wiki/Dershowitz%E2%80%93Manna_ordering
+// relies on ordering of the integers, but the int order becomes in essence a
+// lexicographic order when we use the ints as aliases of other data. So if
+// there is no partial-order to that data being aliased then the D-M ordering
+// should not be used.
 
 impl<N: Counter, const SIZE: usize> Default for Multiset<N, SIZE> {
     #[inline]
@@ -1349,13 +1368,15 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     ///
     /// let multiset = Multiset::from([2u16, 0, 5, 3]);
-    /// assert_eq!(multiset.argmax(), (2, &5));
+    /// assert_eq!(multiset.elem_count_max(), (2, &5));
     /// ```
     #[inline]
-    pub fn argmax(&self) -> (usize, &N) {
+    pub fn elem_count_max(&self) -> (usize, &N) {
         // iter cannot be empty, so it's fine to unwrap
-        let (index, max) = self.iter().enumerate().max_by_key(|(_, e)| *e).unwrap();
-        (index, max)
+        self.iter()
+            .enumerate()
+            .max_by_key(|(_, count)| *count)
+            .unwrap()
     }
 
     /// Returns the element with the largest count in the multiset.
@@ -1366,11 +1387,11 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     ///
     /// let multiset = Multiset::from([2u8, 0, 5, 3]);
-    /// assert_eq!(multiset.imax(), 2);
+    /// assert_eq!(multiset.elem_max(), 2);
     /// ```
     #[inline]
-    pub fn imax(&self) -> usize {
-        self.argmax().0
+    pub fn elem_max(&self) -> usize {
+        self.elem_count_max().0
     }
 
     /// Returns a reference to the largest count in the multiset.
@@ -1381,10 +1402,10 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     ///
     /// let multiset = Multiset::from([2u8, 0, 5, 3]);
-    /// assert_eq!(multiset.max(), &5);
+    /// assert_eq!(multiset.count_max(), &5);
     /// ```
     #[inline]
-    pub fn max(&self) -> &N {
+    pub fn count_max(&self) -> &N {
         // iter cannot be empty, so it's fine to unwrap
         self.iter().max().unwrap()
     }
@@ -1398,13 +1419,15 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     ///
     /// let multiset = Multiset::from([2u8, 0, 5, 3]);
-    /// assert_eq!(multiset.argmin(), (1, &0));
+    /// assert_eq!(multiset.elem_count_min(), (1, &0));
     /// ```
     #[inline]
-    pub fn argmin(&self) -> (usize, &N) {
+    pub fn elem_count_min(&self) -> (usize, &N) {
         // iter cannot be empty, so it's fine to unwrap
-        let (index, min) = self.iter().enumerate().min_by_key(|(_, e)| *e).unwrap();
-        (index, min)
+        self.iter()
+            .enumerate()
+            .min_by_key(|(_, count)| *count)
+            .unwrap()
     }
 
     /// Returns the element with the smallest count in the multiset.
@@ -1415,11 +1438,11 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     ///
     /// let multiset = Multiset::from([2u8, 0, 5, 3]);
-    /// assert_eq!(multiset.imin(), 1);
+    /// assert_eq!(multiset.elem_min(), 1);
     /// ```
     #[inline]
-    pub fn imin(&self) -> usize {
-        self.argmin().0
+    pub fn elem_min(&self) -> usize {
+        self.elem_count_min().0
     }
 
     /// Returns a reference to the smallest count in the multiset.
@@ -1430,10 +1453,10 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     ///
     /// let multiset = Multiset::from([2u8, 0, 5, 3]);
-    /// assert_eq!(multiset.min(), &0);
+    /// assert_eq!(multiset.count_min(), &0);
     /// ```
     #[inline]
-    pub fn min(&self) -> &N {
+    pub fn count_min(&self) -> &N {
         // iter cannot be empty, so it's fine to unwrap
         self.iter().min().unwrap()
     }
@@ -1471,7 +1494,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     /// use utote::Multiset;
     /// use rand::prelude::*;
     ///
-    /// let rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
+    /// let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
     /// let mut multiset = Multiset::from([2u8, 0, 5, 3]);
     /// multiset.choose_random(rng);
     /// assert_eq!(multiset.is_singleton(), true);
@@ -1991,42 +2014,42 @@ mod tests {
     fn test_argmax() {
         let set = Multiset::from([1u8, 0, 3, 1]);
         let expected = (2, &3);
-        assert_eq!(set.argmax(), expected)
+        assert_eq!(set.elem_count_max(), expected)
     }
 
     #[test]
     fn test_imax() {
         let set = Multiset::from([1u8, 0, 3, 1]);
         let expected = 2;
-        assert_eq!(set.imax(), expected)
+        assert_eq!(set.elem_max(), expected)
     }
 
     #[test]
     fn test_max() {
         let set = Multiset::from([1u8, 0, 3, 1]);
         let expected = &3;
-        assert_eq!(set.max(), expected)
+        assert_eq!(set.count_max(), expected)
     }
 
     #[test]
     fn test_argmin() {
         let set = Multiset::from([1u8, 0, 3, 1]);
         let expected = (1, &0);
-        assert_eq!(set.argmin(), expected)
+        assert_eq!(set.elem_count_min(), expected)
     }
 
     #[test]
     fn test_imin() {
         let set = Multiset::from([1u8, 0, 3, 1]);
         let expected = 1;
-        assert_eq!(set.imin(), expected)
+        assert_eq!(set.elem_min(), expected)
     }
 
     #[test]
     fn test_min() {
         let set = Multiset::from([1u8, 0, 3, 1]);
         let expected = &0;
-        assert_eq!(set.min(), expected)
+        assert_eq!(set.count_min(), expected)
     }
 
     #[test]
@@ -2041,12 +2064,12 @@ mod tests {
     #[test]
     fn test_choose_random() {
         let mut result1 = Multiset::from([1u8, 2, 3, 4, 5]);
-        let test_rng1 = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
+        let test_rng1 = &mut StdRng::seed_from_u64(thread_rng().next_u64());
         result1.choose_random(test_rng1);
         assert!(result1.is_singleton() && result1.is_subset(&Multiset::from([1u8, 2, 3, 4, 5])));
 
         let mut result2 = Multiset::from([1u8, 2, 3, 4, 5]);
-        let test_rng2 = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
+        let test_rng2 = &mut StdRng::seed_from_u64(thread_rng().next_u64());
         result2.choose_random(test_rng2);
         assert!(result2.is_singleton() && result2.is_subset(&Multiset::from([1u8, 2, 3, 4, 5])));
     }
@@ -2055,7 +2078,7 @@ mod tests {
     #[test]
     fn test_choose_random_empty() {
         let mut result = Multiset::<u32, 5>::empty();
-        let test_rng = &mut SmallRng::seed_from_u64(thread_rng().next_u64());
+        let test_rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
         result.choose_random(test_rng);
         let expected = Multiset::empty();
         assert_eq!(result, expected);

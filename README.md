@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/utote.svg)](https://crates.io/crates/utote)
 
 High performance, stack allocated uint multiset implementation on rust stable, 
-with optional SIMD implementations available using rust nightly.
+with optional simd implementations available using rust nightly.
 
 **minimum supported rust version: 1.51**
 
@@ -60,7 +60,7 @@ simd implementations of various functions where the use of simd can enhance
 performance. The simd functionality is **nightly** only, while the scalar 
 versions can be used on stable.
 
-The nightly only SIMD implementation uses [packed_simd] and the unstable 
+The nightly only simd implementation uses [packed_simd] and the unstable 
 features: [const_generics] and [const_evaluatable_checked] (all behind the 
 feature flag `"simd"`). `packed_simd` was chosen over alternatives due to its 
 simplicity and based on the assumption that when [std::simd] is stabilised it 
@@ -116,6 +116,20 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 # Changelog
 
+## 0.6.0 (Breaking)
+- API changes
+  - Rename `Multiset::argmax` => `Multiset::elem_count_max`
+  - Rename `Multiset::argmin` => `Multiset::elem_count_min`
+  - Rename `Multiset::imax` => `Multiset::elem_max`
+  - Rename `Multiset::imin` => `Multiset::elem_min`
+  - Rename `Multiset::max` => `Multiset::count_max`
+  - Rename `Multiset::min` => `Multiset::count_min`
+- Cleanup & expand documentation
+- Ensure `PartialOrd` impl uses most efficient method
+- Add `From` mut `Multiset` ref
+- Fix simd impls of `is_any_lesser` & `is_any_greater`
+- Remove unnecessary `SmallRng` uses
+
 ## 0.5.0 (Breaking)
 - Provide uniform generic interface
 - Re-implement scalar and simd backends
@@ -148,7 +162,7 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 
 ## 0.4.0 (Breaking)
 - Minimum rust version: 1.51
-- Deprecate direct SIMD implementation
+- Deprecate direct simd implementation
 - Utilise const generics (removing generic-array & typenum)
 
 ### 0.3.5
