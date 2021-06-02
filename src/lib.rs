@@ -69,6 +69,7 @@
 //! implementations by turning on the `simd` feature of Utote. If you can use
 //! the nightly toolchain then this should be utilised.
 
+#![allow(unused_unsafe)]
 #![cfg_attr(
     feature = "simd",
     feature(const_generics, const_evaluatable_checked),
@@ -79,5 +80,7 @@ mod multiset;
 pub use multiset::*;
 #[cfg(feature = "simd")]
 mod chunks;
+mod iter;
 #[cfg(feature = "simd")]
 mod simd;
+mod simd2;

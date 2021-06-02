@@ -711,7 +711,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
         self.data.iter()
     }
 
-    /// Return a [IterMut](`std::slice::IterMut`) of the element counts in the
+    /// Return an [IterMut](`std::slice::IterMut`) of the element counts in the
     /// Multiset.
     #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, N> {

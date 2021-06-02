@@ -1,14 +1,14 @@
 use crate::chunks::ChunkUtils;
 use crate::{Counter, Multiset};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, Zero};
 use packed_simd::*;
 use paste::paste;
 #[cfg(feature = "rand")]
 use rand::{Rng, RngCore};
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::{Add, Div, Mul};
-use std::cmp::Ordering;
 
 mod sealed {
     use packed_simd::*;
@@ -457,263 +457,263 @@ macro_rules! simd_dispatch {
     };
 }
 
-// pub trait MultisetSimdFn<N> {
-//     unsafe fn _intersection_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _union_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _count_non_zero_simd<S, const C: usize>(&self) -> usize
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _is_disjoint_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _is_subset_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _is_superset_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _is_any_lesser_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _is_any_greater_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _total_simd<S, const C: usize>(&self) -> usize
-//     where
-//         S: SimdBasic<N>;
-//     unsafe fn _collision_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
-//     where
-//         S: SimdBasic<N>,
-//         F: SimdBasic<f64> + SimdFloat<f64>;
-//     unsafe fn _shannon_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
-//     where
-//         S: SimdBasic<N>,
-//         F: SimdBasic<f64> + SimdFloat<f64>;
-// }
-//
-// impl<N> MultisetSimdFn<N> for [N]
-// where
-//     N: SimdTypes + Copy + Zero + AsPrimitive<usize> + AsPrimitive<f64>,
-// {
-//     #[inline]
-//     unsafe fn _intersection_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_map_chunks::<_, C>(&other, out, |a, b, out_slice| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a
-//                 .min(simd_b)
-//                 .write_to_slice_unaligned_unchecked(out_slice);
-//         });
-//     }
-//
-//     #[inline]
-//     unsafe fn _union_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_map_chunks::<_, C>(&other, out, |a, b, out_slice| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a
-//                 .max(simd_b)
-//                 .write_to_slice_unaligned_unchecked(out_slice);
-//         });
-//     }
-//
-//     #[inline]
-//     unsafe fn _count_non_zero_simd<S, const C: usize>(&self) -> usize
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.fold_chunks::<_, _, C>(0, |acc, slice| {
-//             let vec = S::from_slice_unaligned_unchecked(slice);
-//             acc + vec.gt(S::splat(N::zero())).count_true()
-//         })
-//     }
-//
-//     #[inline]
-//     unsafe fn _is_disjoint_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_all_chunks::<_, C>(&other, |a, b| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a.min(simd_b) == S::splat(N::zero())
-//         })
-//     }
-//
-//     #[inline]
-//     unsafe fn _is_subset_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_all_chunks::<_, C>(&other, |a, b| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a.le(simd_b).all()
-//         })
-//     }
-//
-//     #[inline]
-//     unsafe fn _is_superset_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_all_chunks::<_, C>(&other, |a, b| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a.ge(simd_b).all()
-//         })
-//     }
-//
-//     #[inline]
-//     unsafe fn _is_any_lesser_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_any_chunks::<_, C>(&other, |a, b| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a.lt(simd_b).any()
-//         })
-//     }
-//
-//     #[inline]
-//     unsafe fn _is_any_greater_simd<S, const C: usize>(&self, other: &Self) -> bool
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         self.zip_any_chunks::<_, C>(&other, |a, b| {
-//             let simd_a = S::from_slice_unaligned_unchecked(a);
-//             let simd_b = S::from_slice_unaligned_unchecked(b);
-//             simd_a.gt(simd_b).any()
-//         })
-//     }
-//
-//     #[inline]
-//     unsafe fn _total_simd<S, const C: usize>(&self) -> usize
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         if self.len() < C {
-//             self.iter().map::<usize, _>(|e| (*e).as_()).sum()
-//         } else {
-//             let mut out = [N::zero(); C];
-//             let sum_vec = self.fold_chunks::<_, _, C>(S::splat(N::zero()), |acc, a| {
-//                 let simd_a = S::from_slice_unaligned_unchecked(a);
-//                 acc + simd_a
-//             });
-//             sum_vec.write_to_slice_unaligned_unchecked(&mut out);
-//             out.iter().map::<usize, _>(|e| (*e).as_()).sum()
-//         }
-//     }
-//
-//     #[inline]
-//     unsafe fn _collision_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
-//     where
-//         S: SimdBasic<N>,
-//         F: SimdBasic<f64> + SimdFloat<f64>,
-//     {
-//         let total: f64 = self._total_simd::<S, SC>() as f64;
-//         -self
-//             .fold_chunks::<_, _, FC>(F::splat(0.0), |acc, slice| {
-//                 let mut f64_slice = MaybeUninit::<[f64; FC]>::uninit().assume_init();
-//                 for i in 0..FC {
-//                     *f64_slice.get_unchecked_mut(i) = (*slice.get_unchecked(i)).as_();
-//                 }
-//                 let data = F::from_slice_unaligned_unchecked(&f64_slice);
-//                 let prob: F = data / total;
-//                 acc + prob.powf(F::splat(2.0))
-//             })
-//             .sum()
-//             .log2()
-//     }
-//
-//     #[inline]
-//     unsafe fn _shannon_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
-//     where
-//         S: SimdBasic<N>,
-//         F: SimdBasic<f64> + SimdFloat<f64>,
-//     {
-//         let total: f64 = self._total_simd::<S, SC>() as f64;
-//         -self
-//             .fold_chunks::<_, _, FC>(F::splat(0.0), |acc, slice| {
-//                 let mut f64_slice = MaybeUninit::<[f64; FC]>::uninit().assume_init();
-//                 for i in 0..FC {
-//                     *f64_slice.get_unchecked_mut(i) = (*slice.get_unchecked(i)).as_();
-//                 }
-//                 let data = F::from_slice_unaligned_unchecked(&f64_slice);
-//                 let prob: F = data / total;
-//                 let prob_log = prob * prob.ln();
-//                 acc + prob_log.is_nan().select(F::splat(0.0), prob_log)
-//             })
-//             .sum()
-//     }
-// }
-//
-// impl<N: Counter, const SIZE: usize> Multiset<N, SIZE>
-// where
-//     [(); N::L128 * N::L256 * N::LF]: Sized,
-// {
-//     #[inline]
-//     fn _intersection2_default(&self, other: &Self) -> Self {
-//         self.zip_map(other, |s1, s2| s1.min(s2))
-//     }
-//
-//     #[inline]
-//     unsafe fn _array_intersection2_simd<S, const C: usize>(&self, other: &Self) -> Self
-//     where
-//         S: SimdBasic<N>,
-//     {
-//         let mut data = std::mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init();
-//         self.data._intersection_simd::<S, C>(&other.data, &mut data);
-//         Multiset { data }
-//     }
-//
-//     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-//     #[target_feature(enable = "avx2,fma")]
-//     #[inline]
-//     unsafe fn _intersection2_avx2(&self, other: &Self) -> Self {
-//         self._array_intersection2_simd::<N::SIMD256, { N::L256 }>(other)
-//     }
-//
-//     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-//     #[target_feature(enable = "avx")]
-//     #[inline]
-//     unsafe fn _intersection2_avx(&self, other: &Self) -> Self {
-//         self._array_intersection2_simd::<N::SIMD256, { N::L256 }>(other)
-//     }
-//
-//     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-//     #[target_feature(enable = "sse4.2")]
-//     #[inline]
-//     unsafe fn _intersection2_sse42(&self, other: &Self) -> Self {
-//         self._array_intersection2_simd::<N::SIMD128, { N::L128 }>(other)
-//     }
-//
-//     #[inline]
-//     pub fn intersection2(&self, other: &Self) -> Self {
-//         unsafe {
-//             if is_x86_feature_detected!("avx2") {
-//                 self._intersection2_avx2(other)
-//             } else if is_x86_feature_detected!("avx") {
-//                 self._intersection2_avx(other)
-//             } else if is_x86_feature_detected!("sse4.2") {
-//                 self._intersection2_sse42(other)
-//             } else {
-//                 self._intersection2_default(other)
-//             }
-//         }
-//     }
-// }
+pub trait MultisetSimdFn<N> {
+    unsafe fn _intersection_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
+    where
+        S: SimdBasic<N>;
+    unsafe fn _union_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
+    where
+        S: SimdBasic<N>;
+    unsafe fn _count_non_zero_simd<S, const C: usize>(&self) -> usize
+    where
+        S: SimdBasic<N>;
+    unsafe fn _is_disjoint_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>;
+    unsafe fn _is_subset_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>;
+    unsafe fn _is_superset_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>;
+    unsafe fn _is_any_lesser_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>;
+    unsafe fn _is_any_greater_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>;
+    unsafe fn _total_simd<S, const C: usize>(&self) -> usize
+    where
+        S: SimdBasic<N>;
+    unsafe fn _collision_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
+    where
+        S: SimdBasic<N>,
+        F: SimdBasic<f64> + SimdFloat<f64>;
+    unsafe fn _shannon_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
+    where
+        S: SimdBasic<N>,
+        F: SimdBasic<f64> + SimdFloat<f64>;
+}
+
+impl<N> MultisetSimdFn<N> for [N]
+where
+    N: Copy + Zero + AsPrimitive<usize> + AsPrimitive<f64>,
+{
+    #[inline]
+    unsafe fn _intersection_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_map_chunks::<_, C>(&other, out, |a, b, out_slice| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a
+                .min(simd_b)
+                .write_to_slice_unaligned_unchecked(out_slice);
+        });
+    }
+
+    #[inline]
+    unsafe fn _union_simd<S, const C: usize>(&self, other: &Self, out: &mut Self)
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_map_chunks::<_, C>(&other, out, |a, b, out_slice| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a
+                .max(simd_b)
+                .write_to_slice_unaligned_unchecked(out_slice);
+        });
+    }
+
+    #[inline]
+    unsafe fn _count_non_zero_simd<S, const C: usize>(&self) -> usize
+    where
+        S: SimdBasic<N>,
+    {
+        self.fold_chunks::<_, _, C>(0, |acc, slice| {
+            let vec = S::from_slice_unaligned_unchecked(slice);
+            acc + vec.gt(S::splat(N::zero())).count_true()
+        })
+    }
+
+    #[inline]
+    unsafe fn _is_disjoint_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_all_chunks::<_, C>(&other, |a, b| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a.min(simd_b) == S::splat(N::zero())
+        })
+    }
+
+    #[inline]
+    unsafe fn _is_subset_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_all_chunks::<_, C>(&other, |a, b| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a.le(simd_b).all()
+        })
+    }
+
+    #[inline]
+    unsafe fn _is_superset_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_all_chunks::<_, C>(&other, |a, b| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a.ge(simd_b).all()
+        })
+    }
+
+    #[inline]
+    unsafe fn _is_any_lesser_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_any_chunks::<_, C>(&other, |a, b| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a.lt(simd_b).any()
+        })
+    }
+
+    #[inline]
+    unsafe fn _is_any_greater_simd<S, const C: usize>(&self, other: &Self) -> bool
+    where
+        S: SimdBasic<N>,
+    {
+        self.zip_any_chunks::<_, C>(&other, |a, b| {
+            let simd_a = S::from_slice_unaligned_unchecked(a);
+            let simd_b = S::from_slice_unaligned_unchecked(b);
+            simd_a.gt(simd_b).any()
+        })
+    }
+
+    #[inline]
+    unsafe fn _total_simd<S, const C: usize>(&self) -> usize
+    where
+        S: SimdBasic<N>,
+    {
+        if self.len() < C {
+            self.iter().map::<usize, _>(|e| (*e).as_()).sum()
+        } else {
+            let mut out = [N::zero(); C];
+            let sum_vec = self.fold_chunks::<_, _, C>(S::splat(N::zero()), |acc, a| {
+                let simd_a = S::from_slice_unaligned_unchecked(a);
+                acc + simd_a
+            });
+            sum_vec.write_to_slice_unaligned_unchecked(&mut out);
+            out.iter().map::<usize, _>(|e| (*e).as_()).sum()
+        }
+    }
+
+    #[inline]
+    unsafe fn _collision_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
+    where
+        S: SimdBasic<N>,
+        F: SimdBasic<f64> + SimdFloat<f64>,
+    {
+        let total: f64 = self._total_simd::<S, SC>() as f64;
+        -self
+            .fold_chunks::<_, _, FC>(F::splat(0.0), |acc, slice| {
+                let mut f64_slice = MaybeUninit::<[f64; FC]>::uninit().assume_init();
+                for i in 0..FC {
+                    *f64_slice.get_unchecked_mut(i) = (*slice.get_unchecked(i)).as_();
+                }
+                let data = F::from_slice_unaligned_unchecked(&f64_slice);
+                let prob: F = data / total;
+                acc + prob.powf(F::splat(2.0))
+            })
+            .sum()
+            .log2()
+    }
+
+    #[inline]
+    unsafe fn _shannon_entropy_simd<S, F, const SC: usize, const FC: usize>(&self) -> f64
+    where
+        S: SimdBasic<N>,
+        F: SimdBasic<f64> + SimdFloat<f64>,
+    {
+        let total: f64 = self._total_simd::<S, SC>() as f64;
+        -self
+            .fold_chunks::<_, _, FC>(F::splat(0.0), |acc, slice| {
+                let mut f64_slice = MaybeUninit::<[f64; FC]>::uninit().assume_init();
+                for i in 0..FC {
+                    *f64_slice.get_unchecked_mut(i) = (*slice.get_unchecked(i)).as_();
+                }
+                let data = F::from_slice_unaligned_unchecked(&f64_slice);
+                let prob: F = data / total;
+                let prob_log = prob * prob.ln();
+                acc + prob_log.is_nan().select(F::splat(0.0), prob_log)
+            })
+            .sum()
+    }
+}
+
+impl<N: Counter, const SIZE: usize> Multiset<N, SIZE>
+where
+    [(); N::L128 * N::L256 * N::LF]: Sized,
+{
+    #[inline]
+    fn _intersection2_default(&self, other: &Self) -> Self {
+        self.zip_map(other, |s1, s2| s1.min(s2))
+    }
+
+    #[inline]
+    unsafe fn _array_intersection2_simd<S, const C: usize>(&self, other: &Self) -> Self
+    where
+        S: SimdBasic<N>,
+    {
+        let mut data = std::mem::MaybeUninit::<[N; SIZE]>::uninit().assume_init();
+        self.data._intersection_simd::<S, C>(&other.data, &mut data);
+        Multiset { data }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx2,fma")]
+    #[inline]
+    unsafe fn _intersection2_avx2(&self, other: &Self) -> Self {
+        self._array_intersection2_simd::<N::SIMD256, { N::L256 }>(other)
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "avx")]
+    #[inline]
+    unsafe fn _intersection2_avx(&self, other: &Self) -> Self {
+        self._array_intersection2_simd::<N::SIMD256, { N::L256 }>(other)
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[target_feature(enable = "sse4.2")]
+    #[inline]
+    unsafe fn _intersection2_sse42(&self, other: &Self) -> Self {
+        self._array_intersection2_simd::<N::SIMD128, { N::L128 }>(other)
+    }
+
+    #[inline]
+    pub fn intersection2(&self, other: &Self) -> Self {
+        unsafe {
+            if is_x86_feature_detected!("avx2") {
+                self._intersection2_avx2(other)
+            } else if is_x86_feature_detected!("avx") {
+                self._intersection2_avx(other)
+            } else if is_x86_feature_detected!("sse4.2") {
+                self._intersection2_sse42(other)
+            } else {
+                self._intersection2_default(other)
+            }
+        }
+    }
+}
 
 #[allow(unused_braces)]
 impl<N: Counter, const SIZE: usize> Multiset<N, SIZE>
@@ -864,8 +864,8 @@ where
 }
 
 impl<N: Counter, const SIZE: usize> PartialOrd for Multiset<N, SIZE>
-    where
-        [(); N::L128 * N::L256 * N::LF]: Sized,
+where
+    [(); N::L128 * N::L256 * N::LF]: Sized,
 {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
