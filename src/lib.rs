@@ -81,6 +81,7 @@ pub use multiset::*;
 #[cfg(feature = "simd")]
 mod chunks;
 mod iter;
+mod polyfill;
 #[cfg(feature = "simd")]
 mod simd;
 mod simd2;

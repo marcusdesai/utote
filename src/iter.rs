@@ -131,8 +131,8 @@ impl<'a, T, const C: usize> PadSlice<'a, T, C> {
     #[inline]
     fn new(rem: &'a mut [T]) -> Self {
         let mut pad_slice: [u64; C] = [0; C];
-        let (_, buffer, _) = unsafe { pad_slice.align_to_mut::<T>() };
-        buffer[..rem.len()].swap_with_slice(rem);
+        let (_, slice, _) = unsafe { pad_slice.align_to_mut::<T>() };
+        slice[..rem.len()].swap_with_slice(rem);
         Self { pad_slice, rem }
     }
 }
