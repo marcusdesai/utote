@@ -262,7 +262,7 @@ impl<N: Counter, const SIZE: usize> IntoIterator for Multiset<N, SIZE> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        std::array::IntoIter::new(self.data)
+        IntoIterator::into_iter(self.data)
     }
 }
 
@@ -696,7 +696,7 @@ impl<N: Counter, const SIZE: usize> Multiset<N, SIZE> {
     {
         elements.into_iter().fold(Multiset::empty(), |mut acc, &e| {
             if e >= SIZE {
-                panic!("element: {} not in Multiset (element > SIZE)", e)
+                panic!("element: {} not in Multiset (element > {})", e, SIZE)
             }
             // Safety: Above condition ensures `e` is not out of bounds.
             unsafe { *acc.get_unchecked_mut(e) += N::one() };
