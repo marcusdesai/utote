@@ -1,6 +1,6 @@
 [package]
 name = "utote"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Marcus Desai <marcus.desai@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -13,9 +13,9 @@ readme = "README.md"
 documentation = "https://docs.rs/utote"
 
 [dependencies]
-#packed_simd = { version = "0.3.4", package = "packed_simd_2", optional = true }
-rand = { version = "0.8.3", optional = true }
 num-traits = "0.2.14"
+rand = { version = "0.8.3", optional = true }
+serde = { version = "1.0", optional = true, features = ["derive"] }
 paste = "1.0.5"
 
 [dev-dependencies]
@@ -24,7 +24,7 @@ criterion = "0.3"
 rand = "0.8.3"
 
 [features]
-#simd = ["packed_simd"]
+simd = []
 
 [package.metadata.docs.rs]
 features = ["rand"]
