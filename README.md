@@ -15,22 +15,24 @@ with optional simd implementations available using rust nightly.
 ```rust
 use utote::Multiset;
 
+fn main() {
 // A multiset of 5 elements, which can be counted up to u8::MAX
-let mut multiset = Multiset::from([0u8, 3, 4, 0, 5]);
-assert_eq!(multiset.total(), 12);
+  let mut multiset = Multiset::from([0u8, 3, 4, 0, 5]);
+  assert_eq!(multiset.total(), 12);
 
-let equivalent_multiset = Multiset::<u8, 5>::from([0, 3, 4, 0, 5]);
-assert_eq!(multiset, equivalent_multiset);
+  let equivalent_multiset = Multiset::<u8, 5>::from([0, 3, 4, 0, 5]);
+  assert_eq!(multiset, equivalent_multiset);
 
-multiset.insert(2, 6);
-assert_eq!(multiset, Multiset::from([0, 3, 6, 0, 5]));
+  multiset.insert(2, 6);
+  assert_eq!(multiset, Multiset::from([0, 3, 6, 0, 5]));
 
-for elem in multiset.iter() {
+  for elem in multiset.iter() {
     println!("{}", elem);
-}
+  }
 
-assert_eq!(multiset.contains(0), false);
-assert_eq!(multiset.contains(1), true);
+  assert_eq!(multiset.contains(0), false);
+  assert_eq!(multiset.contains(1), true);
+}
 ```
 
 Some common set-like operations:
@@ -38,22 +40,27 @@ Some common set-like operations:
 ```rust
 use utote::Multiset;
 
-let ms_sub: Multiset<u32, 3> = Multiset::from([0, 1, 1]);
-let ms_super = Multiset::from([1, 1, 2]);
+fn main() {
+  let ms_sub: Multiset<u32, 3> = Multiset::from([0, 1, 1]);
+  let ms_super = Multiset::from([1, 1, 2]);
 
-assert_eq!(ms_sub.is_subset(&ms_super), true);
+  assert_eq!(ms_sub.is_subset(&ms_super), true);
 
-assert_eq!(ms_sub.union(&ms_super), Multiset::from([1, 1, 2]));
+  assert_eq!(ms_sub.union(&ms_super), Multiset::from([1, 1, 2]));
 
-assert_eq!(ms_super.is_proper_superset(&ms_sub), true);
+  assert_eq!(ms_super.is_proper_superset(&ms_sub), true);
 
 // Any multiset where all counters are zero is equivalent to
 // the empty multiset.
-let empty: Multiset<u64, 2> = Multiset::from([0, 0]);
-assert_eq!(empty, Multiset::empty());
+  let empty: Multiset<u64, 2> = Multiset::from([0, 0]);
+  assert_eq!(empty, Multiset::new());
+}
 ```
 
 ### Implementation Notes
+
+#### SIMD Feature
+list of functions with manual simd implementations
 
 The Utote Multiset has a single generic API but multiple equivalent scalar and 
 simd implementations of various functions where the use of simd can enhance 
@@ -69,6 +76,10 @@ will look similar in API structure to `packed_simd` as it is now.
 Once const generics and portable simd support hit stable this crate will also 
 become fully stable. Until these features are stabilised the version of Utote 
 will stay below `1.0.0`.
+
+#### Migration from 0.6.0 to 0.7.0
+
+* empty -> new
 
 Since multisets are essentially collections of counters + some useful methods 
 on those counters, and to keep things simple, implementations are only provided 

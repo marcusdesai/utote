@@ -69,20 +69,15 @@
 //! implementations by turning on the `simd` feature of Utote. If you can use
 //! the nightly toolchain then this should be utilised.
 
+#![no_std]
+
 #![cfg_attr(
     feature = "simd",
     feature(array_chunks, portable_simd),
     allow(incomplete_features)
 )]
 
-// #![feature(array_chunks, portable_simd)]
-// #![allow(incomplete_features)]
-
-// mod multiset;
-// pub use multiset::*;
-// #[cfg(feature = "simd")]
-// mod chunks;
-// #[cfg(feature = "simd")]
-// mod simd;
-pub mod simd_iter;
-pub mod counter;
+mod simd_iter;
+pub use simd_iter::Multiset;
+mod counter;
+pub use counter::Counter;

@@ -1,13 +1,16 @@
 use crate::counter::Counter;
-use rand::{Rng, RngCore};
-use std::cmp::Ordering;
-use std::fmt::Debug;
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
+use core::array;
+use core::cmp::Ordering;
+use core::fmt::Debug;
+use core::iter::{FromIterator, IntoIterator, Sum};
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign,
+};
 #[cfg(feature = "simd")]
-use std::simd::*;
-use std::slice::{Iter, IterMut, SliceIndex};
-use num_traits::Pow;
+use core::simd::*;
+use core::slice::{Iter, IterMut, SliceIndex};
+#[cfg(feature = "rand")]
+use rand::{Rng, RngCore};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -29,17 +32,12 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         Multiset([T::ZERO; SIZE])
     }
 
-    #[deprecated(since = "0.7.0", note = "equivalent to new")]
-    pub fn empty() -> Self {
-        Self::new()
-    }
-
     pub const fn repeat(count: T) -> Self {
         Multiset([count; SIZE])
     }
 
-    pub const fn from_array(data: [T; SIZE]) -> Self {
-        Multiset(data)
+    pub const fn from_array(array: [T; SIZE]) -> Self {
+        Multiset(array)
     }
 
     pub const fn as_array(&self) -> &[T; SIZE] {
@@ -54,139 +52,391 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         self.0
     }
 
-    #[inline]
+    pub fn from_slice(slice: &[T]) -> Self {
+        slice.iter().copied().collect()
+    }
+
+    pub fn from_elements<I: IntoIterator<Item = usize>>(elements: I) -> Self {
+        let mut out = [T::ZERO; SIZE];
+        elements
+            .into_iter()
+            .filter(|e| e < &SIZE)
+            .for_each(|e| out[e] = out[e].saturating_add(T::ONE));
+        Multiset(out)
+    }
+
     pub fn iter(&self) -> Iter<T> {
         self.0.iter()
     }
 
-    #[inline]
     pub fn iter_mut(&mut self) -> IterMut<T> {
         self.0.iter_mut()
     }
 
-    #[inline]
+    /// Returns `true` if `elem` has count > 0 in the multiset.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// assert_eq!(multiset.contains(1), true);
+    /// assert_eq!(multiset.contains(3), false);
+    /// assert_eq!(multiset.contains(5), false);
+    /// ```
+    pub fn contains(&self, elem: usize) -> bool {
+        elem < SIZE && self[elem] > T::ZERO
+    }
+
+    /// Returns `true` if `elem` has count > 0 in the multiset, without doing
+    /// bounds checking.
+    ///
+    /// For a safe alternative see [`contains`].
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is
+    /// *[undefined behavior]* even if the resulting boolean is not used.
+    ///
+    /// [`contains`]: Multiset::contains
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([1u8, 2, 0, 0]);
+    ///
+    /// unsafe {
+    ///     assert_eq!(multiset.contains_unchecked(1), true);
+    ///     assert_eq!(multiset.contains_unchecked(3), false);
+    /// }
+    /// ```
+    pub unsafe fn contains_unchecked(&self, elem: usize) -> bool {
+        self.get_unchecked(elem) > &T::ZERO
+    }
+
+    /// Set the count of `elem` in the multiset to `amount`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// multiset.insert(2, 5);
+    /// assert_eq!(multiset.get(2), Some(&5));
+    /// ```
+    pub fn insert(&mut self, elem: usize, amount: T) {
+        if elem < SIZE {
+            self[elem] = amount
+        }
+    }
+
+    /// Set the count of `elem` in the multiset to `amount`, without doing
+    /// bounds checking.
+    ///
+    /// For a safe alternative see [`insert`].
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is
+    /// *[undefined behavior]*.
+    ///
+    /// [`insert`]: Multiset::insert
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 0, 0]);
+    ///
+    /// unsafe {
+    ///     multiset.insert_unchecked(2, 5);
+    ///    assert_eq!(multiset.get(2), Some(&5));
+    /// }
+    /// ```
+    pub unsafe fn insert_unchecked(&mut self, elem: usize, amount: T) {
+        *self.get_unchecked_mut(elem) = amount
+    }
+
+    /// Set the count of `elem` in the multiset to zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// multiset.remove(1);
+    /// assert_eq!(multiset.get(1), Some(&0));
+    /// ```
+    pub fn remove(&mut self, elem: usize) {
+        if elem < SIZE {
+            self[elem] = T::ZERO
+        }
+    }
+
+    /// Set the count of `elem` in the multiset to zero, without doing bounds
+    /// checking.
+    ///
+    /// For a safe alternative see [`remove`].
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is
+    /// *[undefined behavior]*.
+    ///
+    /// [`remove`]: Multiset::remove
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// unsafe {
+    ///     multiset.remove_unchecked(1);
+    ///     assert_eq!(multiset.get(1), Some(&0));
+    /// }
+    /// ```
+    pub unsafe fn remove_unchecked(&mut self, elem: usize) {
+        *self.get_unchecked_mut(elem) = T::ZERO
+    }
+
+    /// Returns a reference to a count or subslice of counts depending on the
+    /// type of index.
+    ///
+    /// - If given a position, returns a reference to the count at that
+    ///   position or `None` if out of bounds.
+    /// - If given a range, returns the subslice corresponding to that range,
+    ///   or `None` if out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// assert_eq!(multiset.get(1), Some(&2));
+    /// assert_eq!(multiset.get(2..), Some(&[0, 0][..]));
+    /// assert_eq!(multiset.get(5), None);
+    /// assert_eq!(multiset.get(0..5), None);
+    /// ```
+    pub fn get<I>(&self, index: I) -> Option<&I::Output>
+    where
+        I: SliceIndex<[T]>,
+    {
+        self.0.get(index)
+    }
+
+    /// Returns a reference to a count or subslice of counts, without doing
+    /// bounds checking.
+    ///
+    /// For a safe alternative see [`get`].
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is
+    /// *[undefined behavior]* even if the resulting reference is not used.
+    ///
+    /// [`get`]: Multiset::get
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([1u32, 2, 0, 0]);
+    ///
+    /// unsafe {
+    ///     assert_eq!(multiset.get_unchecked(1), &2);
+    /// }
+    /// ```
+    pub unsafe fn get_unchecked<I>(&self, index: I) -> &I::Output
+    where
+        I: SliceIndex<[T]>,
+    {
+        self.0.get_unchecked(index)
+    }
+
+    /// Returns a mutable reference to a count or subslice of counts depending
+    /// on the type of index (see [`get`]) or `None` if the index is out of
+    /// bounds.
+    ///
+    /// [`get`]: Multiset::get
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 4]);
+    ///
+    /// if let Some(elem) = multiset.get_mut(1) {
+    ///     *elem = 42;
+    /// }
+    /// assert_eq!(multiset, Multiset::from([1u8, 42, 4]));
+    /// ```
+    pub fn get_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
+    where
+        I: SliceIndex<[T]>,
+    {
+        self.0.get_mut(index)
+    }
+
+    /// Returns a mutable reference to a count or subslice of counts, without
+    /// doing bounds checking.
+    ///
+    /// For a safe alternative see [`get_mut`].
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is
+    /// *[undefined behavior]* even if the resulting reference is not used.
+    ///
+    /// [`get_mut`]: Multiset::get_mut
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 4]);
+    ///
+    /// unsafe {
+    ///     let elem = multiset.get_unchecked_mut(1);
+    ///     *elem = 13;
+    /// }
+    /// assert_eq!(multiset, Multiset::from([1u8, 13, 4]));
+    /// ```
+    pub unsafe fn get_unchecked_mut<I>(&mut self, index: I) -> &mut I::Output
+    where
+        I: SliceIndex<[T]>,
+    {
+        self.0.get_unchecked_mut(index)
+    }
+
+    pub fn increment(&mut self, elem: usize, amount: T) {
+        if elem < SIZE {
+            self.0[elem] = self.0[elem].saturating_add(amount)
+        }
+    }
+
+    pub unsafe fn increment_unchecked(&mut self, elem: usize, amount: T) {
+        *self.get_unchecked_mut(elem) = self.get_unchecked(elem).saturating_add(amount)
+    }
+
+    pub fn pow(self, rhs: u32) -> Self {
+        self.iter().map(|a| a.saturating_pow(rhs)).collect()
+    }
+
     pub fn count_non_zero(&self) -> usize {
         self.iter().filter(|&c| *c > T::ZERO).count()
     }
 
-    #[inline]
     pub fn count_zero(&self) -> usize {
         SIZE - self.count_non_zero()
     }
 
-    #[inline]
     pub fn zeroed(&mut self) {
-        self.0.iter_mut().for_each(|m| *m = T::ZERO);
+        self.iter_mut().for_each(|m| *m = T::ZERO);
     }
 
-    #[inline]
     pub fn intersection(&self, other: &Self) -> Self {
-        let mut out: [T; SIZE] = [T::ZERO; SIZE];
-        for (elem, (a, b)) in out.iter_mut().zip(self.iter().zip(other.iter())) {
-            *elem = *a.min(b)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| *a.min(b))
+            .collect()
     }
 
-    #[inline]
     pub fn intersection_mut(&mut self, other: &Self) {
-        for (a, b) in self.iter_mut().zip(other.iter()) {
-            *a = (*a).min(*b)
-        }
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(a, b)| *a = (*a).min(*b))
     }
 
-    #[inline]
     pub fn union(&self, other: &Self) -> Self {
-        let mut out: [T; SIZE] = [T::ZERO; SIZE];
-        for (elem, (a, b)) in out.iter_mut().zip(self.iter().zip(other.iter())) {
-            *elem = *a.max(b)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| *a.max(b))
+            .collect()
     }
 
-    #[inline]
     pub fn union_mut(&mut self, other: &Self) {
-        for (a, b) in self.iter_mut().zip(other.iter()) {
-            *a = (*a).max(*b)
-        }
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(a, b)| *a = (*a).max(*b))
     }
 
-    #[inline]
     pub fn difference(&self, other: &Self) -> Self {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (a, b)) in out.iter_mut().zip(self.iter().zip(other.iter())) {
-            *elem = a.saturating_sub(*b)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| a.saturating_sub(*b))
+            .collect()
     }
 
-    #[inline]
     pub fn difference_mut(&mut self, other: &Self) {
-        for (a, b) in self.iter_mut().zip(other.iter()) {
-            *a = a.saturating_sub(*b)
-        }
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(a, b)| *a = a.saturating_sub(*b))
     }
 
-    #[inline]
     pub fn complement(&self, other: &Self) -> Self {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (a, b)) in out.iter_mut().zip(self.iter().zip(other.iter())) {
-            *elem = b.saturating_sub(*a)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| b.saturating_sub(*a))
+            .collect()
     }
 
-    #[inline]
     pub fn complement_mut(&mut self, other: &Self) {
-        for (a, b) in self.iter_mut().zip(other.iter()) {
-            *a = b.saturating_sub(*a)
-        }
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(a, b)| *a = b.saturating_sub(*a))
     }
 
-    #[inline]
     pub fn sum(&self, other: &Self) -> Self {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (a, b)) in out.iter_mut().zip(self.iter().zip(other.iter())) {
-            *elem = a.saturating_add(*b)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| a.saturating_add(*b))
+            .collect()
     }
 
-    #[inline]
     pub fn sum_mut(&mut self, other: &Self) {
-        for (a, b) in self.iter_mut().zip(other.iter()) {
-            *a = a.saturating_add(*b)
-        }
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(a, b)| *a = a.saturating_add(*b))
     }
 
-    #[inline]
     pub fn symmetric_difference(&self, other: &Self) -> Self {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (a, b)) in out.iter_mut().zip(self.iter().zip(other.iter())) {
-            *elem = a.abs_diff(*b)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(other.iter())
+            .map(|(a, b)| a.abs_diff(*b))
+            .collect()
     }
 
-    #[inline]
     pub fn symmetric_difference_mut(&mut self, other: &Self) {
-        for (a, b) in self.iter_mut().zip(other.iter()) {
-            *a = a.abs_diff(*b)
-        }
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(a, b)| *a = a.abs_diff(*b))
     }
 
-    #[inline]
     pub fn is_singleton(&self) -> bool {
         self.count_non_zero() == 1
     }
 
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0 == [T::ZERO; SIZE]
     }
 
     #[cfg(not(feature = "simd"))]
-    #[inline]
     pub fn is_disjoint(&self, other: &Self) -> bool {
         self.iter()
             .zip(other.iter())
@@ -194,22 +444,21 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     }
 
     #[cfg(feature = "simd")]
-    #[inline]
     pub fn is_disjoint(&self, other: &Self) -> bool {
         const LANES: usize = 8;
         let mut disjoint = self
             .0
             .array_chunks::<LANES>()
             .zip(other.0.array_chunks())
-            .all(|(c1, c2)| {
-                let s1 = Simd::from_array(*c1);
-                let s2 = Simd::from_array(*c2);
+            .all(|(a1, a2)| {
+                let s1 = Simd::from_array(*a1);
+                let s2 = Simd::from_array(*a2);
                 s1.lanes_lt(s2)
                     .select(s1, s2)
                     .lanes_eq(Simd::splat(T::ZERO))
                     .all()
             });
-        if disjoint && SIZE % LANES != 0 {
+        if SIZE % LANES != 0 && disjoint {
             let mut temp = [T::ZERO; LANES];
             let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
             let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
@@ -222,25 +471,23 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     }
 
     #[cfg(not(feature = "simd"))]
-    #[inline]
     pub fn is_subset(&self, other: &Self) -> bool {
         self.iter().zip(other.iter()).all(|(a, b)| a <= b)
     }
 
     #[cfg(feature = "simd")]
-    #[inline]
     pub fn is_subset(&self, other: &Self) -> bool {
         const LANES: usize = 8;
         let mut subset = self
             .0
             .array_chunks::<LANES>()
             .zip(other.0.array_chunks())
-            .all(|(c1, c2)| {
-                let s1 = Simd::from_array(*c1);
-                let s2 = Simd::from_array(*c2);
+            .all(|(a1, a2)| {
+                let s1 = Simd::from_array(*a1);
+                let s2 = Simd::from_array(*a2);
                 s1.lanes_le(s2).all()
             });
-        if subset && SIZE % LANES != 0 {
+        if SIZE % LANES != 0 && subset {
             let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
             let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
             for (a, b) in rem1.iter().zip(rem2.iter()) {
@@ -251,105 +498,86 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     }
 
     #[cfg(not(feature = "simd"))]
-    #[inline]
     pub fn is_superset(&self, other: &Self) -> bool {
         self.iter().zip(other.iter()).all(|(a, b)| a >= b)
     }
 
     #[cfg(feature = "simd")]
-    #[inline]
     pub fn is_superset(&self, other: &Self) -> bool {
         const LANES: usize = 8;
-        let mut subset = self
+        let mut superset = self
             .0
             .array_chunks::<LANES>()
             .zip(other.0.array_chunks())
-            .all(|(c1, c2)| {
-                let s1 = Simd::from_array(*c1);
-                let s2 = Simd::from_array(*c2);
+            .all(|(a1, a2)| {
+                let s1 = Simd::from_array(*a1);
+                let s2 = Simd::from_array(*a2);
                 s1.lanes_ge(s2).all()
             });
-        if subset && SIZE % LANES != 0 {
+        if SIZE % LANES != 0 && superset {
             let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
             let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
             for (a, b) in rem1.iter().zip(rem2.iter()) {
-                subset &= a >= b
+                superset &= a >= b
             }
         }
-        subset
+        superset
     }
 
     #[cfg(not(feature = "simd"))]
-    #[inline]
     pub fn is_proper_subset(&self, other: &Self) -> bool {
         self.iter().zip(other.iter()).all(|(a, b)| a < b)
     }
 
     #[cfg(feature = "simd")]
-    #[inline]
     pub fn is_proper_subset(&self, other: &Self) -> bool {
         const LANES: usize = 8;
-        let mut subset = self
+        let mut proper_subset = self
             .0
             .array_chunks::<LANES>()
             .zip(other.0.array_chunks())
-            .all(|(c1, c2)| {
-                let s1 = Simd::from_array(*c1);
-                let s2 = Simd::from_array(*c2);
+            .all(|(a1, a2)| {
+                let s1 = Simd::from_array(*a1);
+                let s2 = Simd::from_array(*a2);
                 s1.lanes_lt(s2).all()
             });
-        if subset && SIZE % LANES != 0 {
+        if SIZE % LANES != 0 && proper_subset {
             let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
             let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
             for (a, b) in rem1.iter().zip(rem2.iter()) {
-                subset &= a < b
+                proper_subset &= a < b
             }
         }
-        subset
+        proper_subset
     }
 
     #[cfg(not(feature = "simd"))]
-    #[inline]
     pub fn is_proper_superset(&self, other: &Self) -> bool {
         self.iter().zip(other.iter()).all(|(a, b)| a > b)
     }
 
     #[cfg(feature = "simd")]
-    #[inline]
     pub fn is_proper_superset(&self, other: &Self) -> bool {
         const LANES: usize = 8;
-        let mut subset = self
+        let mut proper_superset = self
             .0
             .array_chunks::<LANES>()
             .zip(other.0.array_chunks())
-            .all(|(c1, c2)| {
-                let s1 = Simd::from_array(*c1);
-                let s2 = Simd::from_array(*c2);
+            .all(|(a1, a2)| {
+                let s1 = Simd::from_array(*a1);
+                let s2 = Simd::from_array(*a2);
                 s1.lanes_gt(s2).all()
             });
-        if subset && SIZE % LANES != 0 {
+        if SIZE % LANES != 0 && proper_superset {
             let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
             let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
             for (a, b) in rem1.iter().zip(rem2.iter()) {
-                subset &= a > b
+                proper_superset &= a > b
             }
         }
-        subset
+        proper_superset
     }
 
-    #[deprecated(since = "0.7.0", note = "equivalent to negation of superset")]
-    #[inline]
-    pub fn is_any_lesser(&self, other: &Self) -> bool {
-        !self.is_superset(other)
-    }
-
-    #[deprecated(since = "0.7.0", note = "equivalent to negation of subset")]
-    #[inline]
-    pub fn is_any_greater(&self, other: &Self) -> bool {
-        !self.is_subset(other)
-    }
-
-    #[inline]
     pub fn total(&self) -> T {
         self.iter().copied().sum()
     }
@@ -359,37 +587,30 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         self.iter().map(|&c| c.into()).sum()
     }
 
-    #[inline]
     pub fn elem_count_max(&self) -> Option<(usize, &T)> {
         self.iter().enumerate().max_by_key(|(_, count)| *count)
     }
 
-    #[inline]
     pub fn elem_max(&self) -> Option<usize> {
         self.elem_count_max().map(|t| t.0)
     }
 
-    #[inline]
     pub fn count_max(&self) -> Option<T> {
         self.iter().copied().max()
     }
 
-    #[inline]
     pub fn elem_count_min(&self) -> Option<(usize, &T)> {
         self.iter().enumerate().min_by_key(|(_, count)| *count)
     }
 
-    #[inline]
     pub fn elem_min(&self) -> Option<usize> {
         self.elem_count_min().map(|t| t.0)
     }
 
-    #[inline]
     pub fn count_min(&self) -> Option<T> {
         self.iter().copied().min()
     }
 
-    #[inline]
     pub fn choose(&mut self, elem: usize) {
         let mut res = [T::ZERO; SIZE];
         if elem < SIZE {
@@ -398,7 +619,7 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         self.0 = res
     }
 
-    #[inline]
+    #[cfg(feature = "rand")]
     pub fn choose_random<R: RngCore>(&mut self, rng: &mut R)
     where
         u64: From<T>,
@@ -425,7 +646,6 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     }
 
     #[cfg(not(feature = "simd"))]
-    #[inline]
     pub fn collision_entropy(&self) -> f64
     where
         u64: From<T>,
@@ -439,7 +659,6 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     }
 
     #[cfg(feature = "simd")]
-    #[inline]
     pub fn collision_entropy(&self) -> f64
     where
         u64: From<T>,
@@ -489,16 +708,51 @@ impl<T: Counter, const SIZE: usize> Default for Multiset<T, SIZE> {
 impl<T: Counter, I: SliceIndex<[T]>, const SIZE: usize> Index<I> for Multiset<T, SIZE> {
     type Output = I::Output;
 
-    #[inline]
     fn index(&self, index: I) -> &Self::Output {
         Index::index(&self.0, index)
     }
 }
 
 impl<T: Counter, I: SliceIndex<[T]>, const SIZE: usize> IndexMut<I> for Multiset<T, SIZE> {
-    #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         IndexMut::index_mut(&mut self.0, index)
+    }
+}
+
+impl<T: Counter, const SIZE: usize> FromIterator<T> for Multiset<T, SIZE> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut out = [T::ZERO; SIZE];
+        for (elem, val) in out.iter_mut().zip(iter.into_iter()) {
+            *elem = val
+        }
+        Multiset(out)
+    }
+}
+
+impl<T: Counter, const SIZE: usize> IntoIterator for Multiset<T, SIZE> {
+    type Item = T;
+    type IntoIter = array::IntoIter<T, SIZE>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIterator::into_iter(self.0)
+    }
+}
+
+impl<'a, T: Counter, const SIZE: usize> IntoIterator for &'a Multiset<T, SIZE> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T: Counter, const SIZE: usize> IntoIterator for &'a mut Multiset<T, SIZE> {
+    type Item = &'a mut T;
+    type IntoIter = IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
     }
 }
 
@@ -509,8 +763,8 @@ fn simd_ord_check<T: Counter, const LANES: usize>(
     s1: Simd<T, LANES>,
     s2: Simd<T, LANES>,
 ) -> Option<Ordering>
-    where
-        LaneCount<LANES>: SupportedLaneCount,
+where
+    LaneCount<LANES>: SupportedLaneCount,
 {
     match order {
         Ordering::Equal if s1.lanes_eq(s2).all() => Some(order),
@@ -527,7 +781,7 @@ impl<T: Counter, const SIZE: usize> PartialOrd for Multiset<T, SIZE> {
     #[cfg(not(feature = "simd"))]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut order: Ordering = Ordering::Equal;
-        for (e_self, e_other) in self.0.iter().zip(other.0.iter()) {
+        for (e_self, e_other) in self.iter().zip(other.iter()) {
             match order {
                 Ordering::Equal if e_self < e_other => order = Ordering::Less,
                 Ordering::Equal if e_self > e_other => order = Ordering::Greater,
@@ -564,22 +818,18 @@ impl<T: Counter, const SIZE: usize> PartialOrd for Multiset<T, SIZE> {
         Some(order)
     }
 
-    #[inline]
     fn lt(&self, other: &Self) -> bool {
         self.is_proper_subset(other)
     }
 
-    #[inline]
     fn le(&self, other: &Self) -> bool {
         self.is_subset(other)
     }
 
-    #[inline]
     fn gt(&self, other: &Self) -> bool {
         self.is_proper_superset(other)
     }
 
-    #[inline]
     fn ge(&self, other: &Self) -> bool {
         self.is_superset(other)
     }
@@ -653,11 +903,7 @@ impl<T: Counter, const SIZE: usize> Add<T> for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn add(self, rhs: T) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, val) in out.iter_mut().zip(self.0.iter()) {
-            *elem = val.saturating_add(rhs)
-        }
-        Multiset::from_array(out)
+        self.iter().map(|a| a.saturating_add(rhs)).collect()
     }
 }
 
@@ -669,9 +915,7 @@ impl<T: Counter, const SIZE: usize> AddAssign for Multiset<T, SIZE> {
 
 impl<T: Counter, const SIZE: usize> AddAssign<T> for Multiset<T, SIZE> {
     fn add_assign(&mut self, rhs: T) {
-        for val in self.0.iter_mut() {
-            *val = val.saturating_add(rhs)
-        }
+        self.iter_mut().for_each(|a| *a = a.saturating_add(rhs))
     }
 }
 
@@ -687,11 +931,7 @@ impl<T: Counter, const SIZE: usize> Sub<T> for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn sub(self, rhs: T) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, val) in out.iter_mut().zip(self.0.iter()) {
-            *elem = val.saturating_sub(rhs)
-        }
-        Multiset::from_array(out)
+        self.iter().map(|a| a.saturating_sub(rhs)).collect()
     }
 }
 
@@ -703,9 +943,7 @@ impl<T: Counter, const SIZE: usize> SubAssign for Multiset<T, SIZE> {
 
 impl<T: Counter, const SIZE: usize> SubAssign<T> for Multiset<T, SIZE> {
     fn sub_assign(&mut self, rhs: T) {
-        for val in self.0.iter_mut() {
-            *val = val.saturating_sub(rhs)
-        }
+        self.iter_mut().for_each(|a| *a = a.saturating_sub(rhs))
     }
 }
 
@@ -713,11 +951,10 @@ impl<T: Counter, const SIZE: usize> Mul for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (val1, val2)) in out.iter_mut().zip(self.0.iter().zip(rhs.0.iter())) {
-            *elem = val1.saturating_mul(*val2)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(rhs.iter())
+            .map(|(a, b)| a.saturating_mul(*b))
+            .collect()
     }
 }
 
@@ -725,27 +962,21 @@ impl<T: Counter, const SIZE: usize> Mul<T> for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, val) in out.iter_mut().zip(self.0.iter()) {
-            *elem = val.saturating_mul(rhs)
-        }
-        Multiset::from_array(out)
+        self.iter().map(|a| a.saturating_mul(rhs)).collect()
     }
 }
 
 impl<T: Counter, const SIZE: usize> MulAssign for Multiset<T, SIZE> {
     fn mul_assign(&mut self, rhs: Self) {
-        for (val1, val2) in self.0.iter_mut().zip(rhs.0.iter()) {
-            *val1 = val1.saturating_mul(*val2)
-        }
+        self.iter_mut()
+            .zip(rhs.iter())
+            .for_each(|(a, b)| *a = a.saturating_mul(*b))
     }
 }
 
 impl<T: Counter, const SIZE: usize> MulAssign<T> for Multiset<T, SIZE> {
     fn mul_assign(&mut self, rhs: T) {
-        for val in self.0.iter_mut() {
-            *val = val.saturating_mul(rhs)
-        }
+        self.iter_mut().for_each(|a| *a = a.saturating_mul(rhs))
     }
 }
 
@@ -753,11 +984,10 @@ impl<T: Counter, const SIZE: usize> Div for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (val1, val2)) in out.iter_mut().zip(self.0.iter().zip(rhs.0.iter())) {
-            *elem = val1.saturating_div(*val2)
-        }
-        Multiset::from_array(out)
+        self.iter()
+            .zip(rhs.iter())
+            .map(|(a, b)| a.saturating_div(*b))
+            .collect()
     }
 }
 
@@ -765,27 +995,21 @@ impl<T: Counter, const SIZE: usize> Div<T> for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn div(self, rhs: T) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, val) in out.iter_mut().zip(self.0.iter()) {
-            *elem = val.saturating_div(rhs)
-        }
-        Multiset::from_array(out)
+        self.iter().map(|a| a.saturating_div(rhs)).collect()
     }
 }
 
 impl<T: Counter, const SIZE: usize> DivAssign for Multiset<T, SIZE> {
     fn div_assign(&mut self, rhs: Self) {
-        for (val1, val2) in self.0.iter_mut().zip(rhs.0.iter()) {
-            *val1 = val1.saturating_div(*val2)
-        }
+        self.iter_mut()
+            .zip(rhs.iter())
+            .for_each(|(a, b)| *a = a.saturating_div(*b))
     }
 }
 
 impl<T: Counter, const SIZE: usize> DivAssign<T> for Multiset<T, SIZE> {
     fn div_assign(&mut self, rhs: T) {
-        for val in self.0.iter_mut() {
-            *val = val.saturating_div(rhs)
-        }
+        self.iter_mut().for_each(|a| *a = a.saturating_div(rhs))
     }
 }
 
@@ -793,11 +1017,7 @@ impl<T: Counter, const SIZE: usize> Rem for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, (val1, val2)) in out.iter_mut().zip(self.0.iter().zip(rhs.0.iter())) {
-            *elem = *val1 % *val2
-        }
-        Multiset::from_array(out)
+        self.iter().zip(rhs.iter()).map(|(a, b)| *a % *b).collect()
     }
 }
 
@@ -805,39 +1025,19 @@ impl<T: Counter, const SIZE: usize> Rem<T> for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn rem(self, rhs: T) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, val) in out.iter_mut().zip(self.0.iter()) {
-            *elem = *val % rhs
-        }
-        Multiset::from_array(out)
+        self.iter().map(|val| *val % rhs).collect()
     }
 }
 
 impl<T: Counter, const SIZE: usize> RemAssign for Multiset<T, SIZE> {
     fn rem_assign(&mut self, rhs: Self) {
-        for (val1, val2) in self.0.iter_mut().zip(rhs.0.iter()) {
-            *val1 %= *val2
-        }
+        self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| *a %= *b)
     }
 }
 
 impl<T: Counter, const SIZE: usize> RemAssign<T> for Multiset<T, SIZE> {
     fn rem_assign(&mut self, rhs: T) {
-        for val in self.0.iter_mut() {
-            *val %= rhs
-        }
-    }
-}
-
-impl<T: Counter, const SIZE: usize> Pow<u32> for Multiset<T, SIZE> {
-    type Output = Multiset<T, SIZE>;
-
-    fn pow(self, rhs: u32) -> Self::Output {
-        let mut out = [T::ZERO; SIZE];
-        for (elem, val) in out.iter_mut().zip(self.0.iter()) {
-            *elem = val.saturating_pow(rhs)
-        }
-        Multiset::from_array(out)
+        self.iter_mut().for_each(|a| *a %= rhs)
     }
 }
 
@@ -846,10 +1046,9 @@ impl<T: Counter, const SIZE: usize> Pow<u32> for Multiset<T, SIZE> {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(feature = "simd")]
-#[inline]
 fn simd_from_slice_or_zero<T: Counter, const LANES: usize>(slice: &[T]) -> Simd<T, LANES>
-    where
-        LaneCount<LANES>: SupportedLaneCount,
+where
+    LaneCount<LANES>: SupportedLaneCount,
 {
     let mut temp = [T::ZERO; LANES];
     for (elem, val) in temp.iter_mut().zip(slice.iter()) {
