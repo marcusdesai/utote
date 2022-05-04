@@ -30,7 +30,7 @@
 //! item_map.insert("foo", 0);
 //! item_map.insert("bar", 1);
 //!
-//! let multiset: Multiset<u16, 2> = Multiset::empty();
+//! let multiset: Multiset<u16, 2> = Multiset::new();
 //!
 //! // do a whole load of stuff to the multiset...
 //!
@@ -78,6 +78,9 @@
 )]
 
 mod simd_iter;
-pub use simd_iter::Multiset;
 mod counter;
+#[cfg(feature = "serde")]
+mod serde;
+
 pub use counter::Counter;
+pub use simd_iter::Multiset;

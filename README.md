@@ -16,22 +16,22 @@ with optional simd implementations available using rust nightly.
 use utote::Multiset;
 
 fn main() {
-// A multiset of 5 elements, which can be counted up to u8::MAX
-  let mut multiset = Multiset::from([0u8, 3, 4, 0, 5]);
-  assert_eq!(multiset.total(), 12);
-
-  let equivalent_multiset = Multiset::<u8, 5>::from([0, 3, 4, 0, 5]);
-  assert_eq!(multiset, equivalent_multiset);
-
-  multiset.insert(2, 6);
-  assert_eq!(multiset, Multiset::from([0, 3, 6, 0, 5]));
-
-  for elem in multiset.iter() {
-    println!("{}", elem);
-  }
-
-  assert_eq!(multiset.contains(0), false);
-  assert_eq!(multiset.contains(1), true);
+    // A multiset of 5 elements, which can count up to u8::MAX
+    let mut multiset = Multiset::from([0u8, 3, 4, 0, 5]);
+    assert_eq!(multiset.total(), 12);
+    
+    let equivalent_multiset = Multiset::<u8, 5>::from([0, 3, 4, 0, 5]);
+    assert_eq!(multiset, equivalent_multiset);
+    
+    multiset.insert(2, 6);
+    assert_eq!(multiset, Multiset::from([0, 3, 6, 0, 5]));
+    
+    for elem in multiset.iter() {
+      println!("{}", elem);
+    }
+    
+    assert_eq!(multiset.contains(0), false);
+    assert_eq!(multiset.contains(1), true);
 }
 ```
 
@@ -41,19 +41,19 @@ Some common set-like operations:
 use utote::Multiset;
 
 fn main() {
-  let ms_sub: Multiset<u32, 3> = Multiset::from([0, 1, 1]);
-  let ms_super = Multiset::from([1, 1, 2]);
-
-  assert_eq!(ms_sub.is_subset(&ms_super), true);
-
-  assert_eq!(ms_sub.union(&ms_super), Multiset::from([1, 1, 2]));
-
-  assert_eq!(ms_super.is_proper_superset(&ms_sub), true);
-
-// Any multiset where all counters are zero is equivalent to
-// the empty multiset.
-  let empty: Multiset<u64, 2> = Multiset::from([0, 0]);
-  assert_eq!(empty, Multiset::new());
+    let ms_sub: Multiset<u32, 3> = Multiset::from([0, 1, 1]);
+    let ms_super = Multiset::from([1, 1, 2]);
+  
+    assert_eq!(ms_sub.is_subset(&ms_super), true);
+  
+    assert_eq!(ms_sub.union(&ms_super), Multiset::from([1, 1, 2]));
+  
+    assert_eq!(ms_super.is_proper_superset(&ms_sub), true);
+  
+    // Any multiset where all counts are zero is equivalent to
+    // the empty multiset.
+    let all_zero: Multiset<u64, 2> = Multiset::from([0, 0]);
+    assert_eq!(all_zero, Multiset::new());
 }
 ```
 
@@ -126,6 +126,8 @@ The implementations in this crate are inspired by [generic-array](https://docs.r
 [nalgebra](https://docs.rs/nalgebra) and [simba](https://docs.rs/simba).
 
 # Changelog
+
+## 0.7.0 (Breaking)
 
 ## 0.6.0 (Breaking)
 - API changes

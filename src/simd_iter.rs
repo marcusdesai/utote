@@ -13,7 +13,6 @@ use core::slice::{Iter, IterMut, SliceIndex};
 use rand::{Rng, RngCore};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct Multiset<T: Counter, const SIZE: usize>([T; SIZE]);
 
@@ -22,40 +21,90 @@ pub struct Multiset<T: Counter, const SIZE: usize>([T; SIZE]);
 ////////////////////////////////////////////////////////////////////////////////
 
 impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
+    /// Length of the multiset.
     pub const SIZE: usize = SIZE;
 
+    /// Get the length of the multiset.
     pub const fn len(&self) -> usize {
         SIZE
     }
 
+    /// Construct an empty multiset.
     pub const fn new() -> Self {
         Multiset([T::ZERO; SIZE])
     }
 
+    /// Construct a multiset setting all counts to the given value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::<u8, 4>::repeat(5);
+    /// assert_eq!(multiset, Multiset::from([5, 5, 5, 5]))
+    /// ```
     pub const fn repeat(count: T) -> Self {
         Multiset([count; SIZE])
     }
 
+    /// Convert an array to a multiset.
     pub const fn from_array(array: [T; SIZE]) -> Self {
         Multiset(array)
     }
 
+    /// Returns a reference to an array of the multiset counts.
     pub const fn as_array(&self) -> &[T; SIZE] {
         &self.0
     }
 
+    /// Returns a mutable reference to an array of the multiset counts.
     pub fn as_mut_array(&mut self) -> &mut [T; SIZE] {
         &mut self.0
     }
 
+    /// Convert a multiset to an array.
     pub const fn to_array(self) -> [T; SIZE] {
         self.0
     }
 
+    /// Construct a multiset from a slice. If the slice's `len` is less than
+    /// the length of the multiset the remaining counts will be set to 0. If
+    /// the slice's `len` is greater than that of the multiset then the excess
+    /// counts will be ignored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let slice = &[5u32, 4, 3, 2, 1];
+    /// let ms = Multiset::from([5u32, 4, 3, 2, 1]);
+    /// assert_eq!(ms, Multiset::from_slice(slice));
+    ///
+    /// let short_slice = &[5u32, 4, 3];
+    /// let full_ms = Multiset::from([5u32, 4, 3, 0, 0]);
+    /// assert_eq!(full_ms, Multiset::from_slice(short_slice));
+    ///
+    /// let long_slice = &[5u32, 4, 3, 2, 1, 0];
+    /// assert_eq!(ms, Multiset::from_slice(long_slice))
+    /// ```
     pub fn from_slice(slice: &[T]) -> Self {
         slice.iter().copied().collect()
     }
 
+    /// Constructs a Multiset from an iterator of elements in the multiset,
+    /// incrementing the count of each element as it occurs in the iterator.
+    /// Elements greater than the length of the multiset are ignored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::<u8, 4>::from_elements([1, 1, 0, 2, 2, 2, 5]);
+    /// assert_eq!(multiset, Multiset::from([1, 2, 3, 0]))
+    /// ```
     pub fn from_elements<I: IntoIterator<Item = usize>>(elements: I) -> Self {
         let mut out = [T::ZERO; SIZE];
         elements
@@ -65,10 +114,14 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         Multiset(out)
     }
 
+    /// Return an [Iter](`std::slice::Iter`) of the element counts in the
+    /// Multiset.
     pub fn iter(&self) -> Iter<T> {
         self.0.iter()
     }
 
+    /// Return a [IterMut](`std::slice::IterMut`) of the element counts in the
+    /// Multiset.
     pub fn iter_mut(&mut self) -> IterMut<T> {
         self.0.iter_mut()
     }
@@ -324,30 +377,106 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         self.0.get_unchecked_mut(index)
     }
 
+    /// Increment the count of `elem` in the multiset by `amount`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// multiset.increment(1, 5);
+    /// assert_eq!(multiset.get(1), Some(&7));
+    /// ```
     pub fn increment(&mut self, elem: usize, amount: T) {
         if elem < SIZE {
             self.0[elem] = self.0[elem].saturating_add(amount)
         }
     }
 
+    /// Increment the count of `elem` in the multiset by `amount`, without doing
+    /// bounds checking.
+    ///
+    /// For a safe alternative see [`increment`].
+    ///
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is
+    /// *[undefined behavior]*.
+    ///
+    /// [`increment`]: Multiset::increment
+    /// [undefined behavior]: https://doc.rust-lang.org/reference/behavior-considered-undefined.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::from([1u8, 2, 0, 0]);
+    /// unsafe { multiset.increment_unchecked(1, 5) };
+    /// assert_eq!(multiset.get(1), Some(&7));
+    /// ```
     pub unsafe fn increment_unchecked(&mut self, elem: usize, amount: T) {
         *self.get_unchecked_mut(elem) = self.get_unchecked(elem).saturating_add(amount)
     }
 
-    pub fn pow(self, rhs: u32) -> Self {
-        self.iter().map(|a| a.saturating_pow(rhs)).collect()
+    /// Creates a multiset with all counts raised to the power of the given
+    /// exponent. This operation saturates at numeric bounds instead of
+    /// overflowing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([100u8, 5]);
+    /// assert_eq!(multiset.pow(2), Multiset::from([255, 25]))
+    /// ```
+    pub fn pow(self, exp: u32) -> Self {
+        self.iter().map(|a| a.saturating_pow(exp)).collect()
     }
 
+    /// Returns the number of elements whose count is non-zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([1u8, 0, 0, 0]);
+    /// assert_eq!(multiset.count_non_zero(), 1);
+    /// ```
     pub fn count_non_zero(&self) -> usize {
         self.iter().filter(|&c| *c > T::ZERO).count()
     }
 
+    /// Returns the number of elements whose count is zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let multiset = Multiset::from([1u8, 0, 0, 0]);
+    /// assert_eq!(multiset.count_zero(), 3);
+    /// ```
     pub fn count_zero(&self) -> usize {
         SIZE - self.count_non_zero()
     }
 
-    pub fn zeroed(&mut self) {
-        self.iter_mut().for_each(|m| *m = T::ZERO);
+    /// Sets all element counts in the multiset to zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use utote::Multiset;
+    ///
+    /// let mut multiset = Multiset::<u8, 4>::from([1, 2, 3, 4]);
+    /// multiset.clear();
+    /// assert!(multiset.is_empty());
+    /// ```
+    pub fn clear(&mut self) {
+        self.0 = [T::ZERO; SIZE];
     }
 
     pub fn intersection(&self, other: &Self) -> Self {
@@ -1063,6 +1192,13 @@ mod tests {
     use approx::assert_relative_eq;
 
     // todo: tests where SIZE = 0
+
+    #[test]
+    fn test_index() {
+        let set = Multiset::from([1u8, 2, 3, 4]);
+        assert_eq!(set.index(1), &2);
+        assert_eq!(set.index(2..), &[3, 4]);
+    }
 
     #[test]
     fn test_intersection() {
