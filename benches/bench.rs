@@ -215,11 +215,11 @@ fn bench_shannon_entropy(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    // bench_intersection,
-    // bench_is_disjoint,
+    bench_intersection,
+    bench_is_disjoint,
     bench_is_subset,
-    // bench_collision_entropy,
-    // bench_partial_cmp,
-    // bench_shannon_entropy,
+    bench_collision_entropy,
+    bench_partial_cmp,
+    bench_shannon_entropy,
 );
 criterion_main!(benches);

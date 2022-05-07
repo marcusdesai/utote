@@ -1,7 +1,7 @@
 use core::iter::Sum;
 use core::ops::{Rem, RemAssign};
 #[cfg(feature = "simd")]
-use core::simd::SimdElement;
+use core::simd::{LaneCount, Simd, SimdElement, SupportedLaneCount};
 
 mod sealed {
     pub trait Sealed {}
@@ -57,6 +57,13 @@ pub trait Counter:
     fn abs_diff(self, rhs: Self) -> Self;
 
     fn as_f64(self) -> f64;
+
+    fn simd_saturating_add<const LANES: usize>(
+        s1: Simd<Self, LANES>,
+        s2: Simd<Self, LANES>,
+    ) -> Simd<Self, LANES>
+    where
+        LaneCount<LANES>: SupportedLaneCount;
 }
 
 macro_rules! impl_counter {
@@ -99,6 +106,18 @@ macro_rules! impl_counter {
             #[inline]
             fn abs_diff(self, rhs: Self) -> Self {
                 self.abs_diff(rhs)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_saturating_add<const LANES: usize>(
+                s1: Simd<Self, LANES>,
+                s2: Simd<Self, LANES>,
+            ) -> Simd<Self, LANES>
+            where
+                LaneCount<LANES>: SupportedLaneCount
+            {
+                s1.saturating_add(s2)
             }
         }
     )*};
