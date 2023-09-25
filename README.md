@@ -84,7 +84,7 @@ Multiset will eventually be implemented on slice and then used from different
 multiset varieties implmenting deref to slice could cause confusion in the 
 code.
 
-[packed_simd]: https://docs.rs/packed_simd_2
+[packed_simd]: https://docs.rs/packed_simd
 [const_generics]: https://github.com/rust-lang/rust/issues/44580
 [const_evaluatable_checked]: https://github.com/rust-lang/rust/issues/76560
 [std::simd]: https://github.com/rust-lang/stdsimd

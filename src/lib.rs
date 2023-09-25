@@ -51,7 +51,7 @@
 //! # Cargo Features
 //!
 //! - __simd__: Requires nightly rust toolchain. Enables simd implementations
-//! using the [__packed_simd__ crate](https://docs.rs/packed_simd_2) crate and
+//! using the [__packed_simd__ crate](https://docs.rs/packed_simd) crate and
 //! unsatble features: [const_generics](https://github.com/rust-lang/rust/issues/44580)
 //! and [const_evaluatable_checked](https://github.com/rust-lang/rust/issues/76560).
 //! - __rand__: Enables [`choose_random`](Multiset::choose_random) methods for
