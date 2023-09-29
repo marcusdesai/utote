@@ -262,7 +262,7 @@ impl<N: Counter, const SIZE: usize> IntoIterator for Multiset<N, SIZE> {
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        std::array::IntoIter::new(self.data)
+        IntoIterator::into_iter(self.data)
     }
 }
 
