@@ -44,11 +44,9 @@ where
         let mut arr = [T::ZERO; SIZE];
         let mut idx = 0;
         while idx < SIZE {
-            match seq.next_element() {
-                Ok(Some(val)) => arr[idx] = val,
-                Ok(None) => return Err(de::Error::invalid_length(idx + 1, &self)),
-                Err(e) => return Err(e),
-            }
+            let opt_val = seq.next_element()?;
+            let val = opt_val.ok_or_else(|| de::Error::invalid_length(idx + 1, &self))?;
+            arr[idx] = val;
             idx += 1
         }
         Ok(arr)

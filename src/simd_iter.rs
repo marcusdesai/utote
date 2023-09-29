@@ -1,7 +1,6 @@
 use crate::counter::Counter;
 use core::array;
 use core::cmp::Ordering;
-use core::fmt::Debug;
 use core::iter::{FromIterator, IntoIterator};
 use core::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign,
@@ -12,7 +11,7 @@ use core::slice::{Iter, IterMut, SliceIndex};
 #[cfg(feature = "rand")]
 use rand::{Rng, RngCore};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Multiset<T: Counter, const SIZE: usize>([T; SIZE]);
 
@@ -141,20 +140,18 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         let mut out = [T::ZERO; SIZE];
         elements
             .into_iter()
-            .for_each(|e| {
-                *out.get_unchecked_mut(e) = out.get_unchecked(e).saturating_add(T::ONE)
-            });
+            .for_each(|e| *out.get_unchecked_mut(e) = out.get_unchecked(e).saturating_add(T::ONE));
         Multiset(out)
     }
 
-    /// Return an [Iter](`std::slice::Iter`) of the element counts in the
+    /// Return an [Iter](`core::slice::Iter`) of the element counts in the
     /// Multiset.
     pub fn iter(&self) -> Iter<T> {
         self.0.iter()
     }
 
-    /// Return a [IterMut](`std::slice::IterMut`) of the element counts in the
-    /// Multiset.
+    /// Return an [IterMut](`core::slice::IterMut`) of the element counts in
+    /// the Multiset.
     pub fn iter_mut(&mut self) -> IterMut<T> {
         self.0.iter_mut()
     }
@@ -217,7 +214,7 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// assert_eq!(multiset.get(2), Some(&5));
     ///
     /// let mut ms100 = Multiset::<u64, 8>::repeat(100);
-    /// multiset.insert(10, 200);
+    /// ms100.insert(10, 200);
     /// assert_eq!(ms100, Multiset::repeat(100))
     /// ```
     pub fn insert(&mut self, elem: usize, amount: T) {
@@ -265,7 +262,7 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// assert_eq!(multiset.get(1), Some(&0));
     ///
     /// let mut ms100 = Multiset::<u64, 8>::repeat(100);
-    /// multiset.remove(10);
+    /// ms100.remove(10);
     /// assert_eq!(ms100, Multiset::repeat(100))
     /// ```
     pub fn remove(&mut self, elem: usize) {
@@ -423,7 +420,7 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// assert_eq!(multiset.get(1), Some(&7));
     ///
     /// let mut empty = Multiset::<u64, 8>::new();
-    /// multiset.increment(10, 25);
+    /// empty.increment(10, 25);
     /// assert!(empty.is_empty())
     /// ```
     pub fn increment(&mut self, elem: usize, amount: T) {
@@ -471,9 +468,9 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// multiset.decrement(1, 5);
     /// assert_eq!(multiset.get(1), Some(&0));
     ///
-    /// let mut empty = Multiset::<u64, 8>::new();
-    /// multiset.decrement(10, 25);
-    /// assert!(empty.is_empty())
+    /// let mut ms100 = Multiset::<u64, 8>::repeat(100);
+    /// ms100.decrement(10, 25);
+    /// assert_eq!(ms100, Multiset::repeat(100))
     /// ```
     pub fn decrement(&mut self, elem: usize, amount: T) {
         if elem < SIZE {
@@ -654,6 +651,9 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     ///
     /// let multiset = Multiset::from([0u8, 5, 0, 0]);
     /// assert!(multiset.is_singleton());
+    ///
+    /// let empty = Multiset::<u64, 20>::new();
+    /// assert_eq!(empty.is_singleton(), false);
     /// ```
     pub fn is_singleton(&self) -> bool {
         self.count_non_zero() == 1
@@ -816,9 +816,11 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         proper_superset
     }
 
-    /// The sum of all element counts, also known as the cardinality of the
+    /// The sum of all element counts, also known as the [cardinality] of the
     /// multiset. This operation saturates at numeric bounds instead of
     /// overflowing.
+    ///
+    /// [cardinality]: https://en.wikipedia.org/wiki/Multiset#:~:text=cardinality
     ///
     /// # Examples
     ///
@@ -854,7 +856,8 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
             .fold(T::ZERO, |acc, e| acc.saturating_add(*e))
     }
 
-    /// The sum of all element counts as a given counter type. This operation
+    /// The sum of all element counts as a given counter type, useful to avoid
+    /// saturating at lower than desired numeric bounds. This operation
     /// saturates at numeric bounds instead of overflowing.
     ///
     /// # Examples
@@ -862,8 +865,9 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// ```
     /// use utote::Multiset;
     ///
-    /// let saturating = Multiset::from([100u8, 100, 100]);
-    /// assert_eq!(saturating.total_as::<u32>(), 300);
+    /// let multiset = Multiset::<u8, 3>::from([100, 100, 100]);
+    /// assert_eq!(multiset.total(), 255);
+    /// assert_eq!(multiset.total_as::<u32>(), 300);
     /// ```
     #[cfg(not(feature = "simd"))]
     pub fn total_as<U: Counter>(&self) -> U
@@ -1071,6 +1075,7 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// let mut multiset = Multiset::from([2u8, 0, 5, 3]);
     /// multiset.choose_random(rng);
     /// assert!(multiset.is_singleton());
+    /// assert!(!multiset.is_empty());
     /// ```
     #[cfg(feature = "rand")]
     pub fn choose_random<R: RngCore>(&mut self, rng: &mut R)
@@ -1498,7 +1503,7 @@ impl<T: Counter, const SIZE: usize> Rem for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        self.iter().zip(rhs.iter()).map(|(a, b)| *a % *b).collect()
+        self.iter().zip(rhs.iter()).map(|(a, b)| (*a).rem(*b)).collect()
     }
 }
 
@@ -1506,19 +1511,19 @@ impl<T: Counter, const SIZE: usize> Rem<T> for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn rem(self, rhs: T) -> Self::Output {
-        self.iter().map(|val| *val % rhs).collect()
+        self.iter().map(|val| val.rem(rhs)).collect()
     }
 }
 
 impl<T: Counter, const SIZE: usize> RemAssign for Multiset<T, SIZE> {
     fn rem_assign(&mut self, rhs: Self) {
-        self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| *a %= *b)
+        self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| a.rem_assign(*b))
     }
 }
 
 impl<T: Counter, const SIZE: usize> RemAssign<T> for Multiset<T, SIZE> {
     fn rem_assign(&mut self, rhs: T) {
-        self.iter_mut().for_each(|a| *a %= rhs)
+        self.iter_mut().for_each(|a| a.rem_assign(rhs))
     }
 }
 
