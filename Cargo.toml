@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/marcusdesai/utote"
 homepage = "https://github.com/marcusdesai/utote"
 description = "Stack allocated uint multiset, with optional SIMD implementations."
-keywords = ["multiset", "data-structure", "collection", "simd", "stack"]
+keywords = ["multiset", "data-structure", "collection", "simd"]
 categories = ["data-structures"]
 readme = "README.md"
 documentation = "https://docs.rs/utote"
@@ -17,8 +17,8 @@ rand = { version = "0.8.5", optional = true, default-features = false }
 serde = { version = "1.0", optional = true, default-features = false }
 
 [dev-dependencies]
-approx = "0.4.0"
-criterion = "0.3"
+approx = "0.5.1"
+criterion = "0.5.1"
 rand = "0.8.5"
 serde_json = "1.0"
 

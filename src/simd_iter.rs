@@ -683,27 +683,19 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     pub fn is_disjoint(&self, other: &Self) -> bool {
-        const LANES: usize = 8;
-        let mut disjoint = self
-            .0
-            .array_chunks::<LANES>()
-            .zip(other.0.array_chunks())
-            .all(|(a1, a2)| {
-                let s1 = Simd::from_array(*a1);
-                let s2 = Simd::from_array(*a2);
-                s1.lanes_lt(s2)
-                    .select(s1, s2)
-                    .lanes_eq(Simd::splat(T::ZERO))
-                    .all()
-            });
-        if SIZE % LANES != 0 && disjoint {
-            let mut temp = [T::ZERO; LANES];
-            let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
-            let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
-            for (elem, (a, b)) in temp.iter_mut().zip(rem1.iter().zip(rem2.iter())) {
-                *elem = (*a).min(*b)
-            }
-            disjoint &= Simd::from_array(temp).lanes_eq(Simd::splat(T::ZERO)).all()
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        let (bp, bm, bu) = T::simd_slice(other.as_array());
+        let mut disjoint = am.iter().zip(bm.iter()).all(|(sa, sb)| {
+            T::simd_all(T::simd_eq(
+                T::simd_select(T::simd_lt(*sa, *sb), *sa, *sb),
+                T::simd_zero(),
+            ))
+        });
+        if SIZE % T::LANES != 0 {
+            ap.iter()
+                .chain(au.iter())
+                .zip(bp.iter().chain(bu.iter()))
+                .for_each(|(a, b)| disjoint &= a.min(b) == &T::ZERO);
         }
         disjoint
     }
@@ -715,22 +707,16 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     pub fn is_subset(&self, other: &Self) -> bool {
-        const LANES: usize = 8;
-        let mut subset = self
-            .0
-            .array_chunks::<LANES>()
-            .zip(other.0.array_chunks())
-            .all(|(a1, a2)| {
-                let s1 = Simd::from_array(*a1);
-                let s2 = Simd::from_array(*a2);
-                s1.lanes_le(s2).all()
-            });
-        if SIZE % LANES != 0 && subset {
-            let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
-            let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
-            for (a, b) in rem1.iter().zip(rem2.iter()) {
-                subset &= a <= b
-            }
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        let (bp, bm, bu) = T::simd_slice(other.as_array());
+        let mut subset = am.iter().zip(bm.iter()).all(|(sa, sb)| {
+            T::simd_all(T::simd_le(*sa, *sb))
+        });
+        if SIZE % T::LANES != 0 {
+            ap.iter()
+                .chain(au.iter())
+                .zip(bp.iter().chain(bu.iter()))
+                .for_each(|(a, b)| subset &= a <= b);
         }
         subset
     }
@@ -742,22 +728,16 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     pub fn is_superset(&self, other: &Self) -> bool {
-        const LANES: usize = 8;
-        let mut superset = self
-            .0
-            .array_chunks::<LANES>()
-            .zip(other.0.array_chunks())
-            .all(|(a1, a2)| {
-                let s1 = Simd::from_array(*a1);
-                let s2 = Simd::from_array(*a2);
-                s1.lanes_ge(s2).all()
-            });
-        if SIZE % LANES != 0 && superset {
-            let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
-            let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
-            for (a, b) in rem1.iter().zip(rem2.iter()) {
-                superset &= a >= b
-            }
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        let (bp, bm, bu) = T::simd_slice(other.as_array());
+        let mut superset = am.iter().zip(bm.iter()).all(|(sa, sb)| {
+            T::simd_all(T::simd_ge(*sa, *sb))
+        });
+        if SIZE % T::LANES != 0 {
+            ap.iter()
+                .chain(au.iter())
+                .zip(bp.iter().chain(bu.iter()))
+                .for_each(|(a, b)| superset &= a >= b);
         }
         superset
     }
@@ -769,22 +749,16 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     pub fn is_proper_subset(&self, other: &Self) -> bool {
-        const LANES: usize = 8;
-        let mut proper_subset = self
-            .0
-            .array_chunks::<LANES>()
-            .zip(other.0.array_chunks())
-            .all(|(a1, a2)| {
-                let s1 = Simd::from_array(*a1);
-                let s2 = Simd::from_array(*a2);
-                s1.lanes_lt(s2).all()
-            });
-        if SIZE % LANES != 0 && proper_subset {
-            let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
-            let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
-            for (a, b) in rem1.iter().zip(rem2.iter()) {
-                proper_subset &= a < b
-            }
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        let (bp, bm, bu) = T::simd_slice(other.as_array());
+        let mut proper_subset = am.iter().zip(bm.iter()).all(|(sa, sb)| {
+            T::simd_all(T::simd_lt(*sa, *sb))
+        });
+        if SIZE % T::LANES != 0 {
+            ap.iter()
+                .chain(au.iter())
+                .zip(bp.iter().chain(bu.iter()))
+                .for_each(|(a, b)| proper_subset &= a < b);
         }
         proper_subset
     }
@@ -796,22 +770,16 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     pub fn is_proper_superset(&self, other: &Self) -> bool {
-        const LANES: usize = 8;
-        let mut proper_superset = self
-            .0
-            .array_chunks::<LANES>()
-            .zip(other.0.array_chunks())
-            .all(|(a1, a2)| {
-                let s1 = Simd::from_array(*a1);
-                let s2 = Simd::from_array(*a2);
-                s1.lanes_gt(s2).all()
-            });
-        if SIZE % LANES != 0 && proper_superset {
-            let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
-            let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
-            for (a, b) in rem1.iter().zip(rem2.iter()) {
-                proper_superset &= a > b
-            }
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        let (bp, bm, bu) = T::simd_slice(other.as_array());
+        let mut proper_superset = am.iter().zip(bm.iter()).all(|(sa, sb)| {
+            T::simd_all(T::simd_gt(*sa, *sb))
+        });
+        if SIZE % T::LANES != 0 {
+            ap.iter()
+                .chain(au.iter())
+                .zip(bp.iter().chain(bu.iter()))
+                .for_each(|(a, b)| proper_superset &= a > b);
         }
         proper_superset
     }
@@ -840,20 +808,14 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     pub fn total(&self) -> T {
-        const LANES: usize = 8;
-        let mut t: Simd<T, LANES> = Simd::splat(T::ZERO);
-        for a in self.0.array_chunks() {
-            let s = Simd::from_array(*a);
-            t = T::simd_saturating_add(t, s)
+        let mut tot = T::simd_zero();
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        am.iter().for_each(|sa| tot = T::simd_saturating_add(tot, *sa));
+        let mut out = T::simd_as_array(&tot).iter().fold(T::ZERO, |acc, e| acc.saturating_add(*e));
+        if SIZE % T::LANES != 0 {
+            ap.iter().chain(au.iter()).for_each(|a| out = out.saturating_add(*a))
         }
-        if SIZE % LANES != 0 {
-            let rem = &self.0[(SIZE - (SIZE % LANES))..];
-            let s = simd_from_slice_or_zero(rem);
-            t = T::simd_saturating_add(t, s)
-        }
-        t.to_array()
-            .iter()
-            .fold(T::ZERO, |acc, e| acc.saturating_add(*e))
+        out
     }
 
     /// The sum of all element counts as a given counter type, useful to avoid
@@ -869,34 +831,12 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     /// assert_eq!(multiset.total(), 255);
     /// assert_eq!(multiset.total_as::<u32>(), 300);
     /// ```
-    #[cfg(not(feature = "simd"))]
     pub fn total_as<U: Counter>(&self) -> U
     where
         U: From<T>,
     {
         self.iter()
             .fold(U::ZERO, |acc, e| acc.saturating_add((*e).into()))
-    }
-
-    #[cfg(feature = "simd")]
-    pub fn total_as<U: Counter>(&self) -> U
-    where
-        U: From<T>,
-    {
-        const LANES: usize = 8;
-        let mut t: Simd<U, LANES> = Simd::splat(U::ZERO);
-        for a in self.0.array_chunks() {
-            let s = Simd::from_array(*a).cast();
-            t = U::simd_saturating_add(t, s)
-        }
-        if SIZE % LANES != 0 {
-            let rem = &self.0[(SIZE - (SIZE % LANES))..];
-            let s = simd_from_slice_or_zero(rem).cast();
-            t = U::simd_saturating_add(t, s)
-        }
-        t.to_array()
-            .iter()
-            .fold(U::ZERO, |acc, e| acc.saturating_add(*e))
     }
 
     /// Returns the element and a reference to it's corresponding count that is
@@ -1062,8 +1002,8 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
 
     /// Set all element counts, except for a random choice, to zero.
     ///
-    /// The choice is weighted by the counts of the elements, unless the
-    /// multiset is empty an element with non-zero count will always be chosen.
+    /// The choice is weighted by the counts of the elements. An element with
+    /// non-zero count will always be chosen unless the multiset is empty.
     ///
     /// # Examples
     ///
@@ -1073,12 +1013,12 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
     ///
     /// let rng = &mut StdRng::seed_from_u64(thread_rng().next_u64());
     /// let mut multiset = Multiset::from([2u8, 0, 5, 3]);
-    /// multiset.choose_random(rng);
+    /// multiset.choose_weighted(rng);
     /// assert!(multiset.is_singleton());
     /// assert!(!multiset.is_empty());
     /// ```
     #[cfg(feature = "rand")]
-    pub fn choose_random<R: RngCore>(&mut self, rng: &mut R)
+    pub fn choose_weighted<R: RngCore>(&mut self, rng: &mut R)
     where
         u64: From<T>,
     {
@@ -1136,21 +1076,22 @@ impl<T: Counter, const SIZE: usize> Multiset<T, SIZE> {
         u64: From<T>,
     {
         const LANES: usize = 4;
-        let total: u64 = self.total_as();
-        let total_vec: Simd<f64, LANES> = Simd::splat(total).cast();
-        let mut out = Simd::splat(0.0);
-        for a in self.0.array_chunks() {
-            let fs = Simd::from_array(*a).cast();
+        let total = self.total_as::<u64>() as f64;
+        let total_vec: Simd<f64, LANES> = Simd::splat(total);
+        let mut inter = Simd::splat(0.0);
+        let (p, m, s) = self.0.as_simd::<LANES>();
+        for a in m {
+            let fs = a.cast();
             let prob = fs / total_vec;
-            out += prob * prob;
+            inter += prob * prob;
         }
+        let mut out = inter.reduce_sum();
         if SIZE % LANES != 0 {
-            let rem = &self.0[(SIZE - (SIZE % LANES))..];
-            let fs = simd_from_slice_or_zero(rem).cast();
-            let prob = fs / total_vec;
-            out += prob * prob;
+            for count in p.iter().chain(s.iter()) {
+                out += ((*count).as_f64() / total).powf(2.0)
+            }
         }
-        -(out.reduce_sum().log2())
+        -out.log2()
     }
 
     /// Calculate the shannon entropy of the multiset. Uses ln rather than log2.
@@ -1242,27 +1183,6 @@ impl<'a, T: Counter, const SIZE: usize> IntoIterator for &'a mut Multiset<T, SIZ
     }
 }
 
-#[cfg(feature = "simd")]
-#[inline]
-fn simd_ord_check<T: Counter, const LANES: usize>(
-    order: Ordering,
-    s1: Simd<T, LANES>,
-    s2: Simd<T, LANES>,
-) -> Option<Ordering>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    match order {
-        Ordering::Equal if s1.lanes_eq(s2).all() => Some(order),
-        Ordering::Equal if s1.lanes_le(s2).all() => Some(Ordering::Less),
-        Ordering::Equal if s1.lanes_ge(s2).all() => Some(Ordering::Greater),
-        Ordering::Equal => None,
-        Ordering::Less if s1.lanes_gt(s2).any() => None,
-        Ordering::Greater if s1.lanes_lt(s2).any() => None,
-        _ => Some(order),
-    }
-}
-
 impl<T: Counter, const SIZE: usize> PartialOrd for Multiset<T, SIZE> {
     #[cfg(not(feature = "simd"))]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -1281,24 +1201,31 @@ impl<T: Counter, const SIZE: usize> PartialOrd for Multiset<T, SIZE> {
 
     #[cfg(feature = "simd")]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        const LANES: usize = 8;
         let mut order: Ordering = Ordering::Equal;
-        for (a1, a2) in self.0.array_chunks::<LANES>().zip(other.0.array_chunks()) {
-            let s1 = Simd::from_array(*a1);
-            let s2 = Simd::from_array(*a2);
-            match simd_ord_check(order, s1, s2) {
-                Some(o) => order = o,
-                None => return None,
+        let (ap, am, au) = T::simd_slice(self.as_array());
+        let (bp, bm, bu) = T::simd_slice(other.as_array());
+        for (sa, sb) in am.iter().zip(bm.iter()) {
+            match order {
+                Ordering::Equal if T::simd_all(T::simd_eq(*sa, *sb)) => (),
+                Ordering::Equal if T::simd_all(T::simd_le(*sa, *sb)) => order = Ordering::Less,
+                Ordering::Equal if T::simd_all(T::simd_ge(*sa, *sb)) => order = Ordering::Greater,
+                Ordering::Equal => return None,
+                Ordering::Less if T::simd_any(T::simd_gt(*sa, *sb)) => return None,
+                Ordering::Greater if T::simd_any(T::simd_lt(*sa, *sb)) => return None,
+                _ => (),
             }
         }
-        if SIZE % LANES != 0 {
-            let rem1 = &self.0[(SIZE - (SIZE % LANES))..];
-            let rem2 = &other.0[(SIZE - (SIZE % LANES))..];
-            let s1 = simd_from_slice_or_zero::<_, LANES>(rem1);
-            let s2 = simd_from_slice_or_zero(rem2);
-            match simd_ord_check(order, s1, s2) {
-                Some(o) => order = o,
-                None => return None,
+        if SIZE % T::LANES != 0 {
+            for (a, b) in ap.iter().chain(au.iter()).zip(bp.iter().chain(bu.iter())) {
+                match order {
+                    Ordering::Equal if a == b => (),
+                    Ordering::Equal if a <= b => order = Ordering::Less,
+                    Ordering::Equal if a >= b => order = Ordering::Greater,
+                    Ordering::Equal => return None,
+                    Ordering::Less if a > b => return None,
+                    Ordering::Greater if a < b => return None,
+                    _ => (),
+                }
             }
         }
         Some(order)
@@ -1503,7 +1430,10 @@ impl<T: Counter, const SIZE: usize> Rem for Multiset<T, SIZE> {
     type Output = Multiset<T, SIZE>;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        self.iter().zip(rhs.iter()).map(|(a, b)| (*a).rem(*b)).collect()
+        self.iter()
+            .zip(rhs.iter())
+            .map(|(a, b)| (*a).rem(*b))
+            .collect()
     }
 }
 
@@ -1517,7 +1447,9 @@ impl<T: Counter, const SIZE: usize> Rem<T> for Multiset<T, SIZE> {
 
 impl<T: Counter, const SIZE: usize> RemAssign for Multiset<T, SIZE> {
     fn rem_assign(&mut self, rhs: Self) {
-        self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| a.rem_assign(*b))
+        self.iter_mut()
+            .zip(rhs.iter())
+            .for_each(|(a, b)| a.rem_assign(*b))
     }
 }
 
@@ -1525,22 +1457,6 @@ impl<T: Counter, const SIZE: usize> RemAssign<T> for Multiset<T, SIZE> {
     fn rem_assign(&mut self, rhs: T) {
         self.iter_mut().for_each(|a| a.rem_assign(rhs))
     }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Utils
-////////////////////////////////////////////////////////////////////////////////
-
-#[cfg(feature = "simd")]
-fn simd_from_slice_or_zero<T: Counter, const LANES: usize>(slice: &[T]) -> Simd<T, LANES>
-where
-    LaneCount<LANES>: SupportedLaneCount,
-{
-    let mut temp = [T::ZERO; LANES];
-    for (elem, val) in temp.iter_mut().zip(slice.iter()) {
-        *elem = *val
-    }
-    Simd::from_array(temp)
 }
 
 #[cfg(test)]
@@ -1586,7 +1502,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wide_total() {
+    fn test_total_as() {
         let a = Multiset::<u32, 4>::from_array([200, 0, 0, 0]);
         assert_eq!(a.total_as::<u64>(), 200);
 

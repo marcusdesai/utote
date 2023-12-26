@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use core::hash::Hash;
 #[cfg(feature = "simd")]
-use core::simd::{LaneCount, Simd, SimdElement, SupportedLaneCount};
+use core::simd::*;
 
 mod sealed {
     pub trait Sealed {}
@@ -57,6 +57,12 @@ pub trait Counter:
 
     const ONE: Self;
 
+    const LANES: usize;
+
+    type Mask;
+
+    type Simd: SimdPartialOrd + SimdPartialEq + SimdUint;
+
     fn saturating_add(self, rhs: Self) -> Self;
 
     fn saturating_sub(self, rhs: Self) -> Self;
@@ -75,20 +81,46 @@ pub trait Counter:
 
     fn rem_assign(&mut self, rhs: Self);
 
-    fn simd_saturating_add<const LANES: usize>(
-        s1: Simd<Self, LANES>,
-        s2: Simd<Self, LANES>,
-    ) -> Simd<Self, LANES>
-    where
-        LaneCount<LANES>: SupportedLaneCount;
+    fn simd_saturating_add(s1: Self::Simd, s2: Self::Simd) -> Self::Simd;
+
+    fn simd_lt(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask;
+
+    fn simd_le(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask;
+
+    fn simd_gt(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask;
+
+    fn simd_ge(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask;
+
+    fn simd_eq(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask;
+
+    fn simd_slice(s: &[Self]) -> (&[Self], &[Self::Simd], &[Self]);
+
+    fn simd_select(m: <Self as Counter>::Mask, s1: Self::Simd, s2: Self::Simd) -> Self::Simd;
+
+    fn simd_all(m: <Self as Counter>::Mask) -> bool;
+
+    fn simd_any(m: <Self as Counter>::Mask) -> bool;
+
+    fn simd_as_array(s: &Self::Simd) -> &[Self];
+
+    fn simd_zero() -> Self::Simd;
 }
 
 macro_rules! impl_counter {
-    ($($t:ty),*) => {$(
+    ($t:ty, mask = $mask:ty, lanes = $lanes:expr) => {
         impl Counter for $t {
             const ZERO: Self = 0;
 
             const ONE: Self = 1;
+
+            #[cfg(feature = "simd")]
+            const LANES: usize = $lanes;
+
+            #[cfg(feature = "simd")]
+            type Mask = Mask<$mask, $lanes>;
+
+            #[cfg(feature = "simd")]
+            type Simd = Simd<$t, $lanes>;
 
             #[inline]
             fn saturating_add(self, rhs: Self) -> Self {
@@ -137,17 +169,85 @@ macro_rules! impl_counter {
 
             #[cfg(feature = "simd")]
             #[inline]
-            fn simd_saturating_add<const LANES: usize>(
-                s1: Simd<Self, LANES>,
-                s2: Simd<Self, LANES>,
-            ) -> Simd<Self, LANES>
-            where
-                LaneCount<LANES>: SupportedLaneCount
-            {
+            fn simd_saturating_add(s1: Self::Simd, s2: Self::Simd) -> Self::Simd {
                 s1.saturating_add(s2)
             }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_lt(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask {
+                s1.simd_lt(s2)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_le(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask {
+                s1.simd_le(s2)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_gt(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask {
+                s1.simd_gt(s2)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_ge(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask {
+                s1.simd_ge(s2)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_eq(s1: Self::Simd, s2: Self::Simd) -> <Self as Counter>::Mask {
+                s1.simd_eq(s2)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_slice(s: &[Self]) -> (&[Self], &[Self::Simd], &[Self]) {
+                s.as_simd()
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_select(
+                m: <Self as Counter>::Mask,
+                s1: Self::Simd,
+                s2: Self::Simd,
+            ) -> Self::Simd {
+                m.select(s1, s2)
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_all(m: <Self as Counter>::Mask) -> bool {
+                m.all()
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_any(m: <Self as Counter>::Mask) -> bool {
+                m.any()
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_as_array(s: &Self::Simd) -> &[Self] {
+                s.as_array()
+            }
+
+            #[cfg(feature = "simd")]
+            #[inline]
+            fn simd_zero() -> Self::Simd {
+                Simd::<$t, $lanes>::splat(Self::ZERO)
+            }
         }
-    )*};
+    };
 }
 
-impl_counter!(u8, u16, u32, u64, usize);
+impl_counter!(u8, mask = i8, lanes = 8);
+impl_counter!(u16, mask = i16, lanes = 8);
+impl_counter!(u32, mask = i32, lanes = 8);
+impl_counter!(u64, mask = i64, lanes = 4);
+impl_counter!(usize, mask = isize, lanes = 4);
